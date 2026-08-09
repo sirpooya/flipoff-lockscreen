@@ -7,15 +7,15 @@ final class MascotTests: XCTestCase {
     }
 
     func testMascotAssetNames() {
-        XCTAssertEqual(Mascot.dog.assetName, "Mascot")
-        XCTAssertEqual(Mascot.cat.assetName, "MascotCat")
+        XCTAssertEqual(Mascot.finger.assetName, "MascotFinger")
+        XCTAssertEqual(Mascot.poop.assetName, "MascotPoop")
         XCTAssertEqual(Mascot.emoji.assetName, "")
     }
 
-    func testResolvedMascotFallsBackToDog() {
-        XCTAssertEqual(Mascot.resolved(from: "cat"), .cat)
-        XCTAssertEqual(Mascot.resolved(from: "emoji"), .emoji)
-        XCTAssertEqual(Mascot.resolved(from: "unknown"), .dog)
+    func testResolvedMascotFallsBackToEmoji() {
+        XCTAssertEqual(Mascot.resolved(from: "finger"), .finger)
+        XCTAssertEqual(Mascot.resolved(from: "poop"), .poop)
+        XCTAssertEqual(Mascot.resolved(from: "unknown"), .emoji)
     }
 
     func testDefaultEmojiIsMiddleFinger() {

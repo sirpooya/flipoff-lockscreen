@@ -1,8 +1,6 @@
 import Foundation
 
 enum Mascot: String, CaseIterable, Identifiable {
-    case dog
-    case cat
     case emoji
     case finger
     case poop
@@ -16,8 +14,6 @@ enum Mascot: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
-        case .dog: return "Dog"
-        case .cat: return "Cat"
         case .emoji: return "Emoji"
         case .finger: return "Finger"
         case .poop: return "Poop"
@@ -28,8 +24,6 @@ enum Mascot: String, CaseIterable, Identifiable {
     /// (see `EmojiMascot.storageKey`), not an asset catalog image.
     var assetName: String {
         switch self {
-        case .dog: return "Mascot"
-        case .cat: return "MascotCat"
         case .emoji: return ""
         case .finger: return "MascotFinger"
         case .poop: return "MascotPoop"
@@ -37,7 +31,7 @@ enum Mascot: String, CaseIterable, Identifiable {
     }
 
     static func resolved(from rawValue: String) -> Mascot {
-        Mascot(rawValue: rawValue) ?? .dog
+        Mascot(rawValue: rawValue) ?? .emoji
     }
 }
 

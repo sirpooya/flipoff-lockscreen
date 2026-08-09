@@ -12,6 +12,7 @@ struct OnboardingView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage(Mascot.storageKey) private var selectedMascot = Mascot.defaultValue
+    @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
     @State private var mascotBreath = false
     @State private var pulse: CGFloat = 0
 
@@ -140,11 +141,7 @@ struct OnboardingView: View {
                 .blur(radius: 18)
                 .offset(y: size * 0.5)
 
-            Image(Mascot.resolved(from: selectedMascot).assetName)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: size, height: size)
+            mascotImage(size: size)
                 .shadow(color: Color("BilakhTeal").opacity(0.18), radius: 24, y: 8)
                 .scaleEffect(mascotBreath ? 1.03 : 1.0)
                 .offset(y: mascotBreath ? -3 : 0)
@@ -154,6 +151,24 @@ struct OnboardingView: View {
             withAnimation(.easeInOut(duration: 4).repeatForever(autoreverses: true)) {
                 mascotBreath = true
             }
+        }
+    }
+
+    /// Renders the current mascot at `size`, either as an image (dog/cat/finger/
+    /// poop) or as the chosen emoji glyph — `Image("")` for the `.emoji` case's
+    /// empty assetName would otherwise render nothing.
+    @ViewBuilder
+    private func mascotImage(size: CGFloat) -> some View {
+        if Mascot.resolved(from: selectedMascot) == .emoji {
+            Text(EmojiMascot.resolved(from: mascotEmoji))
+                .font(.system(size: size * 0.82))
+                .frame(width: size, height: size)
+        } else {
+            Image(Mascot.resolved(from: selectedMascot).assetName)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .frame(width: size, height: size)
         }
     }
 
@@ -304,11 +319,7 @@ struct OnboardingView: View {
                         center: .center, startRadius: 0, endRadius: 95))
                     .blendMode(.plusLighter)
 
-                Image(Mascot.resolved(from: selectedMascot).assetName)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .frame(width: 46, height: 46)
+                mascotImage(size: 46)
             }
             .frame(width: 156, height: 104)
             .onAppear {

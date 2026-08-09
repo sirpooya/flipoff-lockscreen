@@ -186,11 +186,12 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks.") {
+                SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks. Choose None to turn it off.") {
                     HStack(spacing: 10) {
-                        SettingsSegmentedControl(
+                        SettingsDropdown(
                             selection: $selectedLockSound,
-                            options: LockSound.allCases.map { ($0.displayName, $0.rawValue) }
+                            options: LockSound.allCases.map { ($0.displayName, $0.rawValue) },
+                            width: 120
                         )
 
                         Button {
