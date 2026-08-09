@@ -1,0 +1,190 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: brew install xcodegen xcbeautify create-dmg
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      # ── Build unsigned release ──────────────────────────────────────────
+      - name: Build release (unsigned)
+        run: |
+          set -o pipefail
+          xcodebuild -project Lockpaw.xcodeproj \
+            -scheme Lockpaw \
+            -configuration Release \
+            -derivedDataPath build/DerivedData \
+            -destination 'platform=macOS' \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build 2>&1 | xcbeautify
+
+      # ── Import signing certificate (conditional) ────────────────────────
+      # Requires secrets:
+      #   CERTIFICATE_P12_BASE64  — base64-encoded Developer ID Application .p12
+      #   CERTIFICATE_PASSWORD    — password for the .p12 file
+      #   DEVELOPER_ID_APPLICATION — identity name, e.g. "Developer ID Application: Erik Nielsen (XXXXXXXXXX)"
+      #   NOTARIZE_APPLE_ID       — Apple ID email for notarytool
+      #   NOTARIZE_PASSWORD       — app-specific password for notarytool
+      #   APPLE_TEAM_ID           — 10-char team ID
+      - name: Import signing certificate
+        if: env.HAS_SIGNING_SECRETS == 'true'
+        env:
+          HAS_SIGNING_SECRETS: ${{ secrets.CERTIFICATE_P12_BASE64 != '' }}
+          CERTIFICATE_P12_BASE64: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+        run: |
+          # Create a temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 900 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          CERT_PATH=$RUNNER_TEMP/certificate.p12
+          echo "$CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign
+          rm "$CERT_PATH"
+
+          # Allow codesign to access the keychain
+          security set-key-partition-list -S apple-tool:,apple: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+
+      # ── Sign, package DMG, notarize (conditional) ───────────────────────
+      - name: Determine if signing is available
+        id: check-secrets
+        run: |
+          if [ -n "$HAS_SECRETS" ]; then
+            echo "can_sign=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "can_sign=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          HAS_SECRETS: ${{ secrets.CERTIFICATE_P12_BASE64 }}
+
+      - name: Sign app with Developer ID
+        if: steps.check-secrets.outputs.can_sign == 'true'
+        env:
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+        run: |
+          APP_PATH="build/DerivedData/Build/Products/Release/Lockpaw.app"
+          SPARKLE_FW="${APP_PATH}/Contents/Frameworks/Sparkle.framework"
+          SPARKLE_VER="${SPARKLE_FW}/Versions/B"
+
+          sign_item() {
+            codesign --force --sign "$DEVELOPER_ID_APPLICATION" --options runtime --timestamp "$1"
+          }
+
+          # Sign inside-out: Sparkle internals → XPC → framework → app
+          for xpc in "${SPARKLE_VER}/XPCServices/Downloader.xpc" "${SPARKLE_VER}/XPCServices/Installer.xpc"; do
+            [ -d "${xpc}" ] || continue
+            sign_item "${xpc}/Contents/MacOS/$(basename "${xpc}" .xpc)"
+            sign_item "${xpc}"
+          done
+
+          [ -f "${SPARKLE_VER}/Autoupdate" ] && sign_item "${SPARKLE_VER}/Autoupdate"
+
+          if [ -d "${SPARKLE_VER}/Updater.app" ]; then
+            sign_item "${SPARKLE_VER}/Updater.app/Contents/MacOS/Updater"
+            sign_item "${SPARKLE_VER}/Updater.app"
+          fi
+
+          sign_item "${SPARKLE_FW}"
+          sign_item "${APP_PATH}"
+
+          codesign --verify --verbose "${APP_PATH}"
+
+      - name: Create DMG
+        if: steps.check-secrets.outputs.can_sign == 'true'
+        run: |
+          APP_PATH="build/DerivedData/Build/Products/Release/Lockpaw.app"
+          DMG_DIR="build/dmg"
+          DMG_PATH="build/Lockpaw.dmg"
+
+          mkdir -p "$DMG_DIR"
+          cp -R "$APP_PATH" "$DMG_DIR/"
+
+          # Finder alias instead of symlink — symlinks show broken icon on Sonoma+
+          DMG_DIR_ABS="$(cd "$DMG_DIR" && pwd)"
+          osascript -e "tell application \"Finder\" to make new alias file at POSIX file \"${DMG_DIR_ABS}\" to POSIX file \"/Applications\""
+          mv "$DMG_DIR/Applications alias" "$DMG_DIR/Applications" 2>/dev/null || true
+
+          create-dmg \
+            --volname "Lockpaw" \
+            --volicon "scripts/dmg-volume-icon.icns" \
+            --background "scripts/dmg-background@2x.png" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 96 \
+            --text-size 14 \
+            --icon "Lockpaw.app" 170 180 \
+            --hide-extension "Lockpaw.app" \
+            --icon "Applications" 490 180 \
+            --no-internet-enable \
+            "$DMG_PATH" \
+            "$DMG_DIR"
+
+      - name: Notarize DMG
+        if: steps.check-secrets.outputs.can_sign == 'true'
+        env:
+          NOTARIZE_APPLE_ID: ${{ secrets.NOTARIZE_APPLE_ID }}
+          NOTARIZE_PASSWORD: ${{ secrets.NOTARIZE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          DMG_PATH="build/Lockpaw.dmg"
+
+          xcrun notarytool submit "$DMG_PATH" \
+            --apple-id "$NOTARIZE_APPLE_ID" \
+            --password "$NOTARIZE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$DMG_PATH"
+
+      # ── Create GitHub Release ───────────────────────────────────────────
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CAN_SIGN: ${{ steps.check-secrets.outputs.can_sign }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+
+          # Create release if it doesn't exist yet
+          if ! gh release view "$TAG" &>/dev/null; then
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          fi
+
+          # Upload DMG if signing/notarization succeeded
+          if [ "$CAN_SIGN" = "true" ] && [ -f "build/Lockpaw.dmg" ]; then
+            gh release upload "$TAG" "build/Lockpaw.dmg#Lockpaw.dmg" --clobber
+          fi
+
+      # ── Cleanup keychain ────────────────────────────────────────────────
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
