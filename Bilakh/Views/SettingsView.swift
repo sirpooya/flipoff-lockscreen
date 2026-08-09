@@ -162,9 +162,10 @@ struct SettingsView: View {
 
             SettingsPanel {
                 SettingsRow("Mascot") {
-                    SettingsSegmentedControl(
+                    SettingsDropdown(
                         selection: $selectedMascot,
-                        options: Mascot.allCases.map { ($0.displayName, $0.rawValue) }
+                        options: Mascot.allCases.map { ($0.displayName, $0.rawValue) },
+                        width: 160
                     )
                 }
 
