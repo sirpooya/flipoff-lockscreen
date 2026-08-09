@@ -4,6 +4,8 @@ enum Mascot: String, CaseIterable, Identifiable {
     case dog
     case cat
     case emoji
+    case finger
+    case poop
 
     static let storageKey = "mascot"
     // The surprise is the whole point of this fork — default straight to it
@@ -17,6 +19,8 @@ enum Mascot: String, CaseIterable, Identifiable {
         case .dog: return "Dog"
         case .cat: return "Cat"
         case .emoji: return "Emoji"
+        case .finger: return "Finger"
+        case .poop: return "Poop"
         }
     }
 
@@ -27,6 +31,8 @@ enum Mascot: String, CaseIterable, Identifiable {
         case .dog: return "Mascot"
         case .cat: return "MascotCat"
         case .emoji: return ""
+        case .finger: return "MascotFinger"
+        case .poop: return "MascotPoop"
         }
     }
 

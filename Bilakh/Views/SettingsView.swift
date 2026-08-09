@@ -55,6 +55,7 @@ struct SettingsView: View {
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0=System, 1=Light, 2=Dark
     @AppStorage("multiDisplayMode") private var multiDisplayMode = 0 // 0=Ambient, 1=Mirror
     @AppStorage(Mascot.storageKey) private var selectedMascot = Mascot.defaultValue
+    @AppStorage(LockSound.storageKey) private var selectedLockSound = LockSound.defaultValue
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
     @State private var customEmojiInput = ""
     @AppStorage("hotkeyDisplay") private var hotkeyDisplay = HotkeyConfig.defaultDisplay
@@ -180,6 +181,25 @@ struct SettingsView: View {
                         options: [("Ambient", 0), ("Mirror", 1)],
                         width: 220
                     )
+                }
+
+                SettingsDivider()
+
+                SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks.") {
+                    HStack(spacing: 10) {
+                        SettingsSegmentedControl(
+                            selection: $selectedLockSound,
+                            options: LockSound.allCases.map { ($0.displayName, $0.rawValue) }
+                        )
+
+                        Button {
+                            SoundPlayer.play(LockSound.resolved(from: selectedLockSound))
+                        } label: {
+                            Image(systemName: "play.fill")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(LockSound.resolved(from: selectedLockSound) == .none)
+                    }
                 }
 
                 SettingsDivider()
@@ -951,6 +971,25 @@ private struct SettingsSegmentedControl<Value: Hashable>: View {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
         )
+    }
+}
+
+/// A real dropdown (`Picker(.menu)`), for choices too numerous or too visual
+/// (image mascots) for the segmented control's fixed-width row.
+private struct SettingsDropdown<Value: Hashable>: View {
+    @Binding var selection: Value
+    let options: [(title: String, value: Value)]
+    var width: CGFloat = 190
+
+    var body: some View {
+        Picker("", selection: $selection) {
+            ForEach(options.indices, id: \.self) { index in
+                Text(options[index].title).tag(options[index].value)
+            }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .frame(width: width)
     }
 }
 

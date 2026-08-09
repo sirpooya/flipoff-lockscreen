@@ -160,6 +160,7 @@ class LockController: ObservableObject {
         }
 
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
+        SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
         sleepPreventer.preventSleep()
 
         // Photograph the desktop *before* the shield goes up — the overlay sits at
