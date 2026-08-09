@@ -8,6 +8,14 @@ struct OnboardingView: View {
     @State private var recordedKeyDisplay = HotkeyConfig.display
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
     @State private var accessibilityTimer: Timer?
+    /// Revealed after a few seconds stuck on the Accessibility step. macOS's
+    /// accessibility daemon can cache a "not trusted" answer for this process's
+    /// entire remaining lifetime once it's been checked before the user grants
+    /// access — polling AXIsProcessTrusted() again never picks up the change; only
+    /// a fresh process does. A relaunch button is the standard workaround (see
+    /// Rectangle, Karabiner-Elements, BetterTouchTool for the same pattern).
+    @State private var showRelaunchHint = false
+    @State private var relaunchHintTask: Task<Void, Never>?
     @State private var hotkeyConflict: String?
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -74,6 +82,7 @@ struct OnboardingView: View {
         }
         .onDisappear {
             accessibilityTimer?.invalidate()
+            relaunchHintTask?.cancel()
         }
     }
 
@@ -295,6 +304,25 @@ struct OnboardingView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
+
+                    if showRelaunchHint {
+                        VStack(spacing: 8) {
+                            Text("Already toggled it on? macOS sometimes needs\na relaunch to notice.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+
+                            Button {
+                                relaunchApp()
+                            } label: {
+                                Text("Relaunch Bilakh")
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .controlSize(.regular)
+                            .buttonStyle(.bordered)
+                        }
+                        .transition(.opacity)
+                    }
                 }
             }
         }
@@ -473,6 +501,8 @@ struct OnboardingView: View {
 
     private func startAccessibilityPolling() {
         accessibilityTimer?.invalidate()
+        relaunchHintTask?.cancel()
+        showRelaunchHint = false
         accessibilityGranted = AccessibilityChecker.isEnabled
 
         let timer = Timer(timeInterval: 0.5, repeats: true) { timer in
@@ -481,10 +511,33 @@ struct OnboardingView: View {
                 if accessibilityGranted {
                     timer.invalidate()
                     accessibilityTimer = nil
+                    relaunchHintTask?.cancel()
                 }
             }
         }
         accessibilityTimer = timer
         RunLoop.main.add(timer, forMode: .common)
+
+        // If still ungranted after a few seconds, the toggle in System Settings
+        // most likely already succeeded — this process's accessibilityd answer is
+        // just stuck. Offer a one-click relaunch instead of leaving the user to
+        // discover on their own that quitting and reopening is what's needed.
+        relaunchHintTask = Task {
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard !Task.isCancelled, !accessibilityGranted else { return }
+            withAnimation(.easeIn(duration: 0.3)) { showRelaunchHint = true }
+        }
+    }
+
+    /// Quits and reopens Bilakh from its own bundle — a fresh process gets a fresh
+    /// accessibilityd answer, picking up a grant that already happened in System
+    /// Settings but that this process's cached check can no longer see.
+    private func relaunchApp() {
+        let path = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = [path]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 }
