@@ -4,8 +4,12 @@ import ServiceManagement
 import Carbon
 
 private let buyMeACoffeeURL = URL(string: "https://buymeacoffee.com/sirpooya")!
-private let repoURL = URL(string: "https://github.com/sirpooya/bilakh-lock")!
-private let settingsAccentColor = Color("BilakhTeal")
+private let repoURL = URL(string: "https://github.com/sirpooya/osx-bilakh-locksceen")!
+/// Settings chrome follows the system accent. The brand teal reads as a light
+/// green on filled controls (checkboxes, chips, tabs), which isn't wanted here —
+/// the teal stays in the lock-screen mockup, where it's the real product look.
+private let settingsAccentColor = Color.accentColor
+private let mascotGlowColor = Color("BilakhTeal")
 
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case lockScreen
@@ -92,9 +96,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeInOut(duration: 0.2), value: selectedSection)
         }
-        .tint(settingsAccentColor)
-        .accentColor(settingsAccentColor)
-        .frame(minWidth: 760, idealWidth: 820, minHeight: 720, idealHeight: 740)
+        .frame(minWidth: 580, idealWidth: 600, minHeight: 560, idealHeight: 620)
         .background(Color(nsColor: .windowBackgroundColor))
         .onAppear {
             NSApp.setActivationPolicy(.regular)
@@ -120,28 +122,27 @@ struct SettingsView: View {
     private var selectedSettingsPage: some View {
         switch selectedSection {
         case .lockScreen:
-            settingsPage(.lockScreen) { lockScreenSettings }
+            settingsPage { lockScreenSettings }
         case .shortcuts:
-            settingsPage(.shortcuts) { shortcutSettings }
+            settingsPage { shortcutSettings }
         case .general:
-            settingsPage(.general) { generalSettings }
+            settingsPage { generalSettings }
         case .permissions:
-            settingsPage(.permissions) { permissionSettings }
+            settingsPage { permissionSettings }
         case .about:
-            settingsPage(.about) { aboutSettings }
+            settingsPage { aboutSettings }
         }
     }
 
-    private func settingsPage<Content: View>(_ section: SettingsSection, @ViewBuilder content: () -> Content) -> some View {
+    private func settingsPage<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                detailHeader(for: section)
+            VStack(alignment: .leading, spacing: 10) {
                 content()
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 18)
-            .padding(.bottom, 24)
-            .frame(maxWidth: 820, alignment: .topLeading)
+            .padding(.horizontal, 16)
+            .padding(.top, 12)
+            .padding(.bottom, 18)
+            .frame(maxWidth: 600, alignment: .topLeading)
             .frame(maxWidth: .infinity, alignment: .top)
         }
         .scrollIndicators(.automatic)
@@ -149,19 +150,8 @@ struct SettingsView: View {
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
-    private func detailHeader(for section: SettingsSection) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(section.title)
-                .font(.system(size: 22, weight: .semibold))
-            Text(section.subtitle)
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
     private var lockScreenSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             mascotPreview
 
             SettingsPanel {
@@ -169,15 +159,16 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                SettingsRow("Message", subtitle: "Shown beneath the mascot. Uncheck to hide it.") {
+                SettingsRow("Message", subtitle: "Shown beneath the mascot. Turn off to hide it.") {
                     HStack(spacing: 10) {
-                        SettingsCheckbox(isOn: $showMessage)
+                        SettingsSwitch(isOn: $showMessage)
 
                         TextField("Lock message", text: $message, axis: .vertical)
                             .lineLimit(1...3)
                             .multilineTextAlignment(.leading)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 360)
+                            .font(.system(size: 12))
+                            .frame(width: 200)
                             .disabled(!showMessage)
                             .opacity(showMessage ? 1 : 0.4)
                             .onChange(of: message) { _, newValue in
@@ -233,7 +224,7 @@ struct SettingsView: View {
                             .padding(.horizontal, 8)
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.regular)
+                    .controlSize(.small)
                 }
             }
         }
@@ -241,21 +232,21 @@ struct SettingsView: View {
 
     private var emojiPickerRow: some View {
         SettingsRow("Emoji", subtitle: "Shown full-screen while locked.") {
-            HStack(spacing: 10) {
+            HStack(spacing: 6) {
                 ForEach(EmojiMascot.suggestions, id: \.self) { emoji in
                     Button {
                         mascotEmoji = emoji
                         customEmojiInput = ""
                     } label: {
                         Text(emoji)
-                            .font(.system(size: 20))
-                            .frame(width: 32, height: 32)
+                            .font(.system(size: 17))
+                            .frame(width: 28, height: 28)
                             .background(
                                 Circle().fill(.white.opacity(mascotEmoji == emoji ? 0.14 : 0.04))
                             )
                             .overlay(
                                 Circle().strokeBorder(
-                                    Color("BilakhTeal").opacity(mascotEmoji == emoji ? 0.6 : 0),
+                                    settingsAccentColor.opacity(mascotEmoji == emoji ? 0.6 : 0),
                                     lineWidth: 1.5
                                 )
                             )
@@ -291,14 +282,14 @@ struct SettingsView: View {
                     }
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .medium))
-                        .frame(width: 32, height: 32)
+                        .font(.system(size: 12, weight: .medium))
+                        .frame(width: 28, height: 28)
                         .background(
                             Circle().fill(.white.opacity(EmojiMascot.suggestions.contains(mascotEmoji) ? 0.04 : 0.14))
                         )
                         .overlay(
                             Circle().strokeBorder(
-                                Color("BilakhTeal").opacity(EmojiMascot.suggestions.contains(mascotEmoji) ? 0 : 0.6),
+                                settingsAccentColor.opacity(EmojiMascot.suggestions.contains(mascotEmoji) ? 0 : 0.6),
                                 lineWidth: 1.5
                             )
                         )
@@ -324,31 +315,31 @@ struct SettingsView: View {
             )
 
             RadialGradient(
-                colors: [Color("BilakhTeal").opacity(0.18), .clear],
+                colors: [mascotGlowColor.opacity(0.18), .clear],
                 center: .bottomLeading,
                 startRadius: 4,
-                endRadius: 200
+                endRadius: 170
             )
 
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 Text(EmojiMascot.resolved(from: mascotEmoji))
-                    .font(.system(size: 52))
+                    .font(.system(size: 42))
 
                 if showMessage {
                     Text(message)
-                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11, weight: .heavy, design: .rounded))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
                         .lineLimit(2)
                         .minimumScaleFactor(0.6)
-                        .padding(.horizontal, 24)
+                        .padding(.horizontal, 18)
                 }
             }
         }
         .aspectRatio(16.0 / 9.0, contentMode: .fit)
-        .frame(width: 220)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .padding(16)
+        .frame(width: 180)
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .padding(12)
         .frame(maxWidth: .infinity)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
@@ -364,17 +355,17 @@ struct SettingsView: View {
                     }
                 } label: {
                     Text(isRecording ? "Press shortcut…" : hotkeyDisplay)
-                        .font(.system(size: 14, weight: .medium, design: .monospaced))
-                        .foregroundStyle(isRecording ? Color("BilakhTeal") : .primary)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 4)
+                        .font(.system(size: 12, weight: .medium, design: .monospaced))
+                        .foregroundStyle(isRecording ? settingsAccentColor : .primary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(isRecording ? Color("BilakhTeal").opacity(0.12) : Color(.controlBackgroundColor))
+                                .fill(isRecording ? settingsAccentColor.opacity(0.12) : Color(.controlBackgroundColor))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .strokeBorder(isRecording ? Color("BilakhTeal").opacity(0.45) : Color(.separatorColor), lineWidth: 0.5)
+                                .strokeBorder(isRecording ? settingsAccentColor.opacity(0.45) : Color(.separatorColor), lineWidth: 0.5)
                         )
                 }
                 .buttonStyle(.plain)
@@ -389,13 +380,13 @@ struct SettingsView: View {
             SettingsDivider()
 
             SettingsRow("Require authentication", subtitle: "Touch ID or your Mac password is needed to unlock. Touch the sensor any time while locked.") {
-                SettingsCheckbox(isOn: $requiresAuthenticationToUnlock)
+                SettingsSwitch(isOn: $requiresAuthenticationToUnlock)
             }
 
             SettingsDivider()
 
             SettingsRow("Global hotkey", subtitle: "Keep the shortcut active while Bilakh is running.") {
-                SettingsCheckbox(isOn: $hotkeyEnabled)
+                SettingsSwitch(isOn: $hotkeyEnabled)
                     .onChange(of: hotkeyEnabled) { _, enabled in
                         NotificationCenter.default.post(
                             name: .bilakhHotkeyPreferenceChanged,
@@ -552,10 +543,10 @@ struct SettingsView: View {
     }
 
     private var generalSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             SettingsPanel {
                 SettingsRow("Launch at login", subtitle: "Open Bilakh automatically when you sign in.") {
-                    SettingsCheckbox(isOn: $launchAtLogin)
+                    SettingsSwitch(isOn: $launchAtLogin)
                         .onChange(of: launchAtLogin) { _, enabled in
                             do {
                                 if enabled { try SMAppService.mainApp.register() }
@@ -572,7 +563,7 @@ struct SettingsView: View {
                     SettingsSegmentedControl(
                         selection: $appearanceMode,
                         options: [("System", 0), ("Light", 1), ("Dark", 2)],
-                        width: 240
+                        width: 200
                     )
                     .onChange(of: appearanceMode) { _, mode in
                         applyAppearance(mode)
@@ -582,7 +573,7 @@ struct SettingsView: View {
 
             SettingsPanel {
                 SettingsRow("Play a sound on agent ping", subtitle: "Off by default for shared spaces. The locked screen always glows.") {
-                    SettingsCheckbox(isOn: $agentPingSound)
+                    SettingsSwitch(isOn: $agentPingSound)
                 }
 
                 SettingsDivider()
@@ -657,7 +648,7 @@ struct SettingsView: View {
                         accessibilityGranted ? "Granted" : "Required",
                         systemImage: accessibilityGranted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
                     )
-                    .foregroundStyle(accessibilityGranted ? Color("BilakhTeal") : Color("BilakhAmber"))
+                    .foregroundStyle(accessibilityGranted ? settingsAccentColor : Color("BilakhAmber"))
 
                     if !accessibilityGranted {
                         Button {
@@ -686,7 +677,7 @@ struct SettingsView: View {
                         screenRecordingGranted ? "Granted" : "Optional",
                         systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "photo"
                     )
-                    .foregroundStyle(screenRecordingGranted ? Color("BilakhTeal") : .secondary)
+                    .foregroundStyle(screenRecordingGranted ? settingsAccentColor : .secondary)
 
                     if !screenRecordingGranted {
                         Button {
@@ -718,7 +709,7 @@ struct SettingsView: View {
                         cameraGranted ? "Granted" : "Optional",
                         systemImage: cameraGranted ? "checkmark.circle.fill" : "camera"
                     )
-                    .foregroundStyle(cameraGranted ? Color("BilakhTeal") : .secondary)
+                    .foregroundStyle(cameraGranted ? settingsAccentColor : .secondary)
 
                     if !cameraGranted {
                         Button {
@@ -744,20 +735,20 @@ struct SettingsView: View {
     }
 
     private var aboutSettings: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 10) {
             SettingsPanel {
-                HStack(spacing: 14) {
+                HStack(spacing: 11) {
                     Image(nsImage: NSApp.applicationIconImage)
                         .resizable()
                         .scaledToFit()
-                        .frame(width: 46, height: 46)
+                        .frame(width: 38, height: 38)
                         .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 1) {
                         Text("Bilakh")
-                            .font(.system(size: 17, weight: .semibold))
+                            .font(.system(size: 14, weight: .semibold))
                         Text(appVersionText)
-                            .font(.system(size: 14))
+                            .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                     }
 
@@ -767,7 +758,7 @@ struct SettingsView: View {
                         updater.checkForUpdates()
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.regular)
+                    .controlSize(.small)
                     .disabled(!updater.canCheckForUpdates)
                 }
                 .padding(.vertical, 2)
@@ -779,13 +770,14 @@ struct SettingsView: View {
                     subtitle: "Forked from lockpaw by Erik Nielsen.",
                     subtitleSize: 11
                 ) {
-                    Link("Github", destination: repoURL)
+                    Link("GitHub", destination: repoURL)
                         .buttonStyle(.link)
                 }
 
                 SettingsDivider()
 
                 Text("Bilakh is a visual privacy tool. It helps prevent accidental input while your screen is guarded. For security, use your Mac's lock screen (Ctrl+Cmd+Q).")
+                    .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -799,7 +791,7 @@ struct SettingsView: View {
                             .padding(.horizontal, 8)
                     }
                     .buttonStyle(.bordered)
-                    .controlSize(.regular)
+                    .controlSize(.small)
                 }
             }
         }
@@ -839,9 +831,9 @@ struct SettingsView: View {
     private func configureSettingsWindow() {
         guard let window = NSApp.keyWindow else { return }
         window.title = "Bilakh Settings"
-        window.minSize = NSSize(width: 760, height: 720)
+        window.minSize = NSSize(width: 580, height: 560)
 
-        let targetSize = NSSize(width: 820, height: 740)
+        let targetSize = NSSize(width: 600, height: 620)
         let contentSize = window.contentView?.frame.size ?? .zero
         if contentSize.width < targetSize.width || contentSize.height < targetSize.height {
             window.setContentSize(targetSize)
@@ -919,12 +911,12 @@ private struct SettingsPanel<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             content
         }
-        .font(.system(size: 14))
-        .controlSize(.regular)
-        .padding(16)
+        .font(.system(size: 13))
+        .controlSize(.small)
+        .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
@@ -939,7 +931,7 @@ private struct SettingsTabBar: View {
 
     var body: some View {
         // The window titlebar already says "Bilakh Settings" — no in-content title.
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .center, spacing: 6) {
             ForEach(SettingsSection.allCases) { section in
                 SettingsTabButton(
                     section: section,
@@ -949,8 +941,8 @@ private struct SettingsTabBar: View {
                 }
             }
         }
-        .padding(.vertical, 9)
-        .padding(.horizontal, 14)
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
         .frame(maxWidth: .infinity)
         .background(Color(nsColor: .windowBackgroundColor))
     }
@@ -963,17 +955,17 @@ private struct SettingsTabButton: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 5) {
+            VStack(spacing: 3) {
                 Image(systemName: section.systemImage)
-                    .font(.system(size: 22, weight: .regular))
-                    .frame(height: 26)
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(height: 19)
 
                 Text(section.title)
-                    .font(.system(size: 12, weight: .medium))
+                    .font(.system(size: 10.5, weight: .medium))
             }
             .foregroundStyle(isSelected ? settingsAccentColor : .secondary)
-            .padding(.horizontal, 8)
-            .frame(width: 90, height: 56)
+            .padding(.horizontal, 4)
+            .frame(width: 76, height: 44)
             .background {
                 if isSelected {
                     RoundedRectangle(cornerRadius: 9, style: .continuous)
@@ -997,7 +989,7 @@ private struct SettingsRow<Control: View>: View {
     private let subtitleSize: CGFloat
     private let control: Control
 
-    init(_ title: String, subtitle: String? = nil, subtitleSize: CGFloat = 13, @ViewBuilder control: () -> Control) {
+    init(_ title: String, subtitle: String? = nil, subtitleSize: CGFloat = 11, @ViewBuilder control: () -> Control) {
         self.title = title
         self.subtitle = subtitle
         self.subtitleSize = subtitleSize
@@ -1005,10 +997,10 @@ private struct SettingsRow<Control: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: 18) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.primary)
 
                 if let subtitle {
@@ -1019,21 +1011,21 @@ private struct SettingsRow<Control: View>: View {
                 }
             }
 
-            Spacer(minLength: 18)
+            Spacer(minLength: 12)
 
             control
-                .frame(minWidth: 280, alignment: .trailing)
+                .frame(minWidth: 200, alignment: .trailing)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .frame(minHeight: subtitle == nil ? 32 : 44)
+        .frame(minHeight: subtitle == nil ? 26 : 36)
     }
 }
 
 private struct SettingsSegmentedControl<Value: Hashable>: View {
     @Binding var selection: Value
     let options: [(title: String, value: Value)]
-    var width: CGFloat = 190
+    var width: CGFloat = 170
 
     var body: some View {
         HStack(spacing: 0) {
@@ -1045,11 +1037,11 @@ private struct SettingsSegmentedControl<Value: Hashable>: View {
                     selection = option.value
                 } label: {
                     Text(option.title)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(isSelected ? settingsAccentColor : Color.secondary)
                         .lineLimit(1)
-                        .padding(.horizontal, 12)
-                        .frame(maxWidth: .infinity, minHeight: 24)
+                        .padding(.horizontal, 8)
+                        .frame(maxWidth: .infinity, minHeight: 20)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -1094,34 +1086,14 @@ private struct SettingsDropdown<Value: Hashable>: View {
     }
 }
 
-private struct SettingsCheckbox: View {
+private struct SettingsSwitch: View {
     @Binding var isOn: Bool
 
     var body: some View {
-        Button {
-            isOn.toggle()
-        } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isOn ? settingsAccentColor : Color(nsColor: .controlBackgroundColor))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .strokeBorder(Color.primary.opacity(isOn ? 0 : 0.14), lineWidth: 1)
-                    )
-
-                if isOn {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(.black)
-                }
-            }
-            .frame(width: 20, height: 20)
-            .padding(4)
-            .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(isOn ? "On" : "Off")
-        .accessibilityAddTraits(isOn ? [.isSelected] : [])
+        Toggle("", isOn: $isOn)
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.small)
     }
 }
 

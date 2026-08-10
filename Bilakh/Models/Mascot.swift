@@ -9,7 +9,7 @@ enum EmojiMascot {
 
     /// A short set of quick picks for the Settings row. The full macOS Character
     /// Viewer (wired up in SettingsView) covers everything else.
-    static let suggestions = ["🖕", "😈", "💀", "🙄", "😏", "👻", "🎃"]
+    static let suggestions = ["🖕", "😈", "💀", "💩", "😏", "👻", "🎃"]
 
     static func resolved(from rawValue: String) -> String {
         rawValue.isEmpty ? defaultValue : rawValue

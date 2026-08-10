@@ -1,69 +1,129 @@
 import AVFoundation
 import AppKit
+import CoreImage
 import os.log
 
 private let logger = Logger(subsystem: "in.pooya.bilakh", category: "CameraCapturer")
 
 /// Grabs a single silent snapshot from the built-in camera and saves it to
-/// ~/Downloads. Used only on a failed unlock attempt — never on lock, never on
-/// a successful unlock, and never more than once per failure.
+/// ~/Downloads. Used only when someone touches the locked machine — never on
+/// lock, never on a successful unlock, and never more than once per lock.
+///
+/// Uses `AVCaptureVideoDataOutput` (pull a frame off the live stream) rather than
+/// `AVCapturePhotoOutput` (request a dedicated still). The photo path fails with
+/// AVError -11800 whenever another process already holds the camera — Teams,
+/// avconferenced, a browser tab — which on a normal desktop is most of the time.
+/// Reading the video stream tolerates that shared access.
 ///
 /// Never throws and never blocks the caller: a missing camera, a denied
-/// permission, or a capture error all just log and return. Catching whoever's
-/// at the keyboard is a bonus, not something that can be allowed to interfere
-/// with the actual lock/unlock flow.
+/// permission, or a capture error all just log and return. Catching whoever's at
+/// the keyboard is a bonus, not something allowed to interfere with the lock.
 enum CameraCapturer {
     private static let session = AVCaptureSession()
-    private static let photoOutput = AVCapturePhotoOutput()
-    private static var delegate: PhotoDelegate?
+    private static let videoOutput = AVCaptureVideoDataOutput()
+    private static let frameGrabber = FrameGrabber()
     private static var isConfigured = false
     private static let queue = DispatchQueue(label: "in.pooya.bilakh.camera")
+    /// Frames must be delivered on their own queue: `queue` blocks in
+    /// `Thread.sleep` while waiting for them, so sharing it would deadlock the
+    /// delegate and no frame would ever arrive.
+    private static let sampleQueue = DispatchQueue(label: "in.pooya.bilakh.camera.frames")
+    private static let ciContext = CIContext()
 
     static func captureAndSaveOnFailedUnlock() {
         guard CameraChecker.isEnabled else {
-            logger.notice("Camera not authorized — skipping failed-unlock snapshot")
+            logger.notice("Camera not authorized — skipping snapshot")
             return
         }
 
         queue.async {
             guard configureIfNeeded() else { return }
 
+            frameGrabber.reset()
             session.startRunning()
-            // Let the sensor settle for a beat before grabbing a frame — the very
-            // first frame off a cold start is often under-exposed.
-            Thread.sleep(forTimeInterval: 0.4)
 
-            let settings = AVCapturePhotoSettings()
-            let delegate = PhotoDelegate { image in
-                session.stopRunning()
-                guard let image else { return }
-                save(image)
+            // `startRunning()` returns before the session is live, and a camera
+            // already in use elsewhere can take a moment to come up.
+            let startDeadline = Date().addingTimeInterval(3.0)
+            while !session.isRunning && Date() < startDeadline {
+                Thread.sleep(forTimeInterval: 0.05)
             }
-            self.delegate = delegate
-            photoOutput.capturePhoto(with: settings, delegate: delegate)
+
+            guard session.isRunning else {
+                logger.error("Camera session never started — camera may be unavailable")
+                session.stopRunning()
+                return
+            }
+
+            // Discard the first frames: a cold sensor delivers black or wildly
+            // under-exposed images until auto-exposure settles. Settle for as
+            // long as we can, but take whatever arrived rather than nothing.
+            let frameDeadline = Date().addingTimeInterval(4.0)
+            while frameGrabber.frameCount < 8 && Date() < frameDeadline {
+                Thread.sleep(forTimeInterval: 0.05)
+            }
+
+            let image = frameGrabber.latestImage
+            let frames = frameGrabber.frameCount
+            session.stopRunning()
+
+            guard let image else {
+                logger.error("No frame arrived from the camera within the timeout (frames=\(frames, privacy: .public))")
+                return
+            }
+            logger.info("Grabbed frame after \(frames, privacy: .public) frame(s)")
+            save(image)
         }
     }
 
     // MARK: - Private
 
+    /// The built-in camera, explicitly — never `AVCaptureDevice.default(for:)`.
+    ///
+    /// That default follows the *system preferred camera*, which on a Mac paired
+    /// with an iPhone is Continuity Camera. Continuity only delivers frames when
+    /// the phone is awake, unlocked and nearby, so at lock time the session
+    /// starts and then produces zero frames forever. The soldered-in FaceTime
+    /// camera is always there, which is the whole point here.
+    private static func preferredCamera() -> AVCaptureDevice? {
+        let discovery = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.builtInWideAngleCamera, .external],
+            mediaType: .video,
+            position: .unspecified
+        )
+        let devices = discovery.devices
+
+        // A Continuity Camera reports as .builtInWideAngleCamera too, so filter
+        // it out by transport type rather than trusting the device type alone.
+        if let builtIn = devices.first(where: { $0.deviceType == .builtInWideAngleCamera && !$0.isContinuityCamera }) {
+            return builtIn
+        }
+        // Then any real external webcam, before falling back to whatever's left.
+        return devices.first(where: { !$0.isContinuityCamera }) ?? AVCaptureDevice.default(for: .video)
+    }
+
     private static func configureIfNeeded() -> Bool {
         if isConfigured { return true }
 
-        guard let device = AVCaptureDevice.default(for: .video) else {
-            logger.notice("No camera available — skipping failed-unlock snapshot")
+        guard let device = preferredCamera() else {
+            logger.notice("No camera available — skipping snapshot")
             return false
         }
+        logger.info("Using camera: \(device.localizedName, privacy: .public)")
 
         do {
             let input = try AVCaptureDeviceInput(device: device)
             session.beginConfiguration()
-            guard session.canAddInput(input), session.canAddOutput(photoOutput) else {
+            session.sessionPreset = .high
+            guard session.canAddInput(input), session.canAddOutput(videoOutput) else {
                 session.commitConfiguration()
                 logger.error("Could not wire up camera session")
                 return false
             }
             session.addInput(input)
-            session.addOutput(photoOutput)
+            videoOutput.alwaysDiscardsLateVideoFrames = true
+            videoOutput.setSampleBufferDelegate(frameGrabber, queue: sampleQueue)
+            session.addOutput(videoOutput)
             session.commitConfiguration()
             isConfigured = true
             return true
@@ -79,12 +139,9 @@ enum CameraCapturer {
             return
         }
 
-        let timestamp = Date()
         let fileStamp = DateFormatter()
         fileStamp.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let baseName = "Bilakh Intruder \(fileStamp.string(from: timestamp))"
-        let imageURL = downloads.appendingPathComponent("\(baseName).jpg")
-        let descriptionURL = downloads.appendingPathComponent("\(baseName).txt")
+        let imageURL = downloads.appendingPathComponent("Bilakh Intruder \(fileStamp.string(from: Date())).jpg")
 
         let rep = NSBitmapImageRep(cgImage: image)
         guard let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else {
@@ -94,49 +151,48 @@ enum CameraCapturer {
 
         do {
             try data.write(to: imageURL)
-            logger.notice("Saved failed-unlock snapshot to \(imageURL.lastPathComponent, privacy: .public)")
+            logger.notice("Saved snapshot to \(imageURL.lastPathComponent, privacy: .public)")
         } catch {
             logger.error("Could not save snapshot: \(error.localizedDescription, privacy: .public)")
-            return
-        }
-
-        let readableStamp = DateFormatter()
-        readableStamp.dateStyle = .medium
-        readableStamp.timeStyle = .medium
-        let description = """
-        Bilakh intruder snapshot
-
-        Taken:  \(readableStamp.string(from: timestamp))
-        Reason: Someone touched the keyboard, trackpad, or mouse while this Mac \
-        was locked by Bilakh, or attempted to unlock it and failed.
-        Image:  \(imageURL.lastPathComponent)
-
-        This photo was captured automatically from the built-in camera. Turn it \
-        off in Bilakh's settings under Lock Screen \u{2192} "Camera on failed unlock".
-        """
-
-        do {
-            try description.write(to: descriptionURL, atomically: true, encoding: .utf8)
-        } catch {
-            logger.error("Could not save snapshot description: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    /// Bridges AVCapturePhotoOutput's delegate callback to a closure.
-    private final class PhotoDelegate: NSObject, AVCapturePhotoCaptureDelegate {
-        private let completion: (CGImage?) -> Void
+    /// Keeps the most recent frame off the video stream so the capture can pick
+    /// one up once auto-exposure has settled.
+    private final class FrameGrabber: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
+        private let lock = NSLock()
+        private var _latestImage: CGImage?
+        private var _frameCount = 0
 
-        init(completion: @escaping (CGImage?) -> Void) {
-            self.completion = completion
+        var latestImage: CGImage? {
+            lock.lock(); defer { lock.unlock() }
+            return _latestImage
         }
 
-        func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
-            if let error {
-                logger.error("Capture failed: \(error.localizedDescription, privacy: .public)")
-                completion(nil)
-                return
-            }
-            completion(photo.cgImageRepresentation())
+        var frameCount: Int {
+            lock.lock(); defer { lock.unlock() }
+            return _frameCount
+        }
+
+        func reset() {
+            lock.lock(); defer { lock.unlock() }
+            _latestImage = nil
+            _frameCount = 0
+        }
+
+        func captureOutput(
+            _ output: AVCaptureOutput,
+            didOutput sampleBuffer: CMSampleBuffer,
+            from connection: AVCaptureConnection
+        ) {
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+            let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+            guard let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) else { return }
+
+            lock.lock()
+            _latestImage = cgImage
+            _frameCount += 1
+            lock.unlock()
         }
     }
 }
