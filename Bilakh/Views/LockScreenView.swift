@@ -174,7 +174,7 @@ struct LockScreenView: View {
                             }
                             .transition(.opacity)
                         } else {
-                            // Fallback auth is always visible — no tap-to-reveal.
+                            // Fallback auth, shown once the lock has revealed itself.
                             VStack(spacing: 16) {
                                 Text(requiresAuthenticationToUnlock ? "Authentication required to unlock" : "Use your hotkey to unlock, or")
                                     .font(.lockCaption)
@@ -214,6 +214,11 @@ struct LockScreenView: View {
                     .animation(Constants.Anim.gentle, value: controller.unlockSucceeded)
                     .offset(x: shakeOffset)
                 }
+                // Nothing on the shield draws until the first input attempt — the
+                // screen has to pass for an unlocked desktop, so a stray hint or
+                // auth button would spoil it before anyone touches the machine.
+                .opacity(controller.revealed ? 1 : 0)
+                .allowsHitTesting(controller.revealed)
             }
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)
@@ -309,7 +314,16 @@ struct LockScreenView: View {
             if let backdrop {
                 // The frozen desktop replaces the gradient wholesale — the drifting
                 // color pools would read as smudges over real content.
-                BackdropView(image: backdrop, dim: backdropDim, blur: backdropBlur)
+                //
+                // Undimmed and unblurred until revealed: the whole point is that the
+                // screen looks untouched, so a scrim would give the lock away before
+                // anyone touches the machine. The dim fades in with the mascot, where
+                // it earns its keep making the white text readable.
+                BackdropView(
+                    image: backdrop,
+                    dim: controller.revealed ? backdropDim : 0,
+                    blur: controller.revealed ? backdropBlur : 0
+                )
             } else {
                 LinearGradient(
                     colors: [Color(red: 0.01, green: 0.005, blue: 0.025), .black, Color(red: 0.01, green: 0.005, blue: 0.02)],

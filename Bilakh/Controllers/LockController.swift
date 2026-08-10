@@ -211,10 +211,7 @@ class LockController: ObservableObject {
                     backdrop: backdrop
                 ))
             } else {
-                return AnyView(AmbientScreenView(
-                    phaseOffset: CGFloat(index) * 0.15,
-                    backdrop: backdrop
-                ))
+                return AnyView(AmbientBackdropHost(controller: self, index: index, backdrop: backdrop))
             }
         }) else {
             logger.error("Lock failed — no screens available for overlay")

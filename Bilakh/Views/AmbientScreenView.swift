@@ -4,6 +4,9 @@ struct AmbientScreenView: View {
     var phaseOffset: CGFloat = 0
     /// Frozen screenshot of this display. Nil falls back to the animated blobs.
     var backdrop: CGImage?
+    /// Mirrors the primary screen's reveal — a dimmed second monitor would give
+    /// the lock away just as loudly as a dimmed main one.
+    var revealed: Bool = false
 
     @State private var phase: CGFloat = 0
     @State private var appeared = false
@@ -16,7 +19,11 @@ struct AmbientScreenView: View {
         GeometryReader { geo in
             ZStack {
                 if let backdrop {
-                    BackdropView(image: backdrop, dim: backdropDim, blur: backdropBlur)
+                    BackdropView(
+                        image: backdrop,
+                        dim: revealed ? backdropDim : 0,
+                        blur: revealed ? backdropBlur : 0
+                    )
                 } else {
                     Color.black.ignoresSafeArea()
 
