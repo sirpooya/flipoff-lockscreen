@@ -25,6 +25,8 @@ struct LockScreenView: View {
     /// Mascot pop-in, kept separate from `appeared` so it can run on a springier
     /// curve than the rest of the content group.
     @State private var mascotPopped = false
+    /// Message scale-up, a beat behind the mascot so the two don't land together.
+    @State private var messagePopped = false
     @State private var hoveringAuth = false
     @State private var shakeOffset: CGFloat = 0
     @State private var successScale: CGFloat = 1.0
@@ -103,32 +105,24 @@ struct LockScreenView: View {
                                     .foregroundStyle(Color("BilakhError"))
                                     .shadow(color: Color("BilakhError").opacity(0.15), radius: 8)
                             } else if showMessage {
+                                // Big and black, not the quiet white body type the
+                                // other states use — this is the punchline of the
+                                // prank, so it lands like a shout.
                                 Text(message)
-                                    .font(.lockBody(compact: compact))
-                                    .foregroundStyle(.white.opacity(0.55))
+                                    .font(.system(size: compact ? 44 : 76, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(.black)
+                                    .scaleEffect(messagePopped ? 1 : 0.4)
                             }
                         }
                         .multilineTextAlignment(.center)
                         .lineLimit(3)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.5)
                         .tracking(0.35)
-                        .padding(.horizontal, max(64, geo.size.width * 0.2))
+                        .padding(.horizontal, max(48, geo.size.width * 0.1))
                         .opacity(appeared ? 1 : 0)
                         .animation(Constants.Anim.gentle, value: controller.isAuthenticating)
                         .animation(Constants.Anim.gentle, value: controller.unlockSucceeded)
                         .animation(Constants.Anim.standard, value: controller.lastError)
-                        .allowsHitTesting(false)
-
-                        // Time
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            Text(Constants.formatElapsedTime(controller.elapsedTime))
-                                .font(.lockMono)
-                                .foregroundStyle(.white.opacity(0.35))
-                                .tracking(0.5)
-                                .accessibilityLabel("Locked for \(Constants.formatElapsedTimeAccessible(controller.elapsedTime))")
-                        }
-                        .opacity(appeared ? 1 : 0)
-                        .opacity(controller.isAuthenticating || controller.unlockSucceeded ? 0.15 : 1)
                         .allowsHitTesting(false)
 
                         // Standing agent hint — quiet, persistent companion to the
@@ -176,11 +170,6 @@ struct LockScreenView: View {
                         } else {
                             // Fallback auth, shown once the lock has revealed itself.
                             VStack(spacing: 16) {
-                                Text(requiresAuthenticationToUnlock ? "Authentication required to unlock" : "Use your hotkey to unlock, or")
-                                    .font(.lockCaption)
-                                    .foregroundStyle(.white.opacity(0.35))
-                                    .tracking(0.5)
-
                                 Button {
                                     NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
                                     controller.requestUnlock()
@@ -219,6 +208,7 @@ struct LockScreenView: View {
                 // auth button would spoil it before anyone touches the machine.
                 .opacity(controller.revealed ? 1 : 0)
                 .allowsHitTesting(controller.revealed)
+                .animation(.easeOut(duration: 0.25), value: controller.revealed)
             }
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)
@@ -232,11 +222,21 @@ struct LockScreenView: View {
             withAnimation(Constants.Anim.breathe) { phase = Constants.Anim.breathePhaseTarget }
         }
         .onChange(of: controller.revealed) { _, isRevealed in
-            guard isRevealed else { return }
+            guard isRevealed else {
+                // Drop the pop states immediately (no animation — the container
+                // fade above already covers the visible transition) so the next
+                // reveal on this same lock pops in fresh instead of appearing
+                // pre-popped.
+                appeared = false
+                mascotPopped = false
+                messagePopped = false
+                return
+            }
             withAnimation(reduceMotion ? .none : .timingCurve(0.16, 1, 0.3, 1, duration: 0.6)) { appeared = true }
             // Mascot pops in on a spring — scales up from 0.5 while fading in, a
             // beat snappier than the surrounding text so it reads as the subject.
             withAnimation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.6)) { mascotPopped = true }
+            withAnimation(reduceMotion ? .none : .spring(response: 0.55, dampingFraction: 0.62).delay(0.08)) { messagePopped = true }
         }
         .onChange(of: controller.lastError) { _, error in
             guard error != nil else { return }

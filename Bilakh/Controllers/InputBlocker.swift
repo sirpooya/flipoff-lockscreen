@@ -98,6 +98,16 @@ class InputBlocker {
                         return nil
                     }
 
+                    // Esc dismisses an already-revealed gag immediately, without
+                    // waiting out the 5s auto-hide — same escape you'd expect from
+                    // any modal, it just doesn't unlock anything.
+                    if keyCode == 53 {
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: .bilakhDismissReveal, object: nil)
+                        }
+                        return nil
+                    }
+
                     #if DEBUG
                     if flags.contains(.maskCommand) && flags.contains(.maskShift) && keyCode == 12 {
                         DispatchQueue.main.async { NSApplication.shared.terminate(nil) }

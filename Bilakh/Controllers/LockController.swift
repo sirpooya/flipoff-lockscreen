@@ -39,6 +39,7 @@ class LockController: ObservableObject {
     private var sessionActiveObserver: Any?
     private var inputBlockerFailedObserver: Any?
     private var inputAttemptObserver: Any?
+    private var dismissRevealObserver: Any?
     private var accessibilityCheckTimer: Timer?
     private var errorClearTask: Task<Void, Never>?
     private var toggleObserver: Any?
@@ -48,6 +49,7 @@ class LockController: ObservableObject {
     private var lastAuthFailTime: Date?
     private var lastPingTime: Date?
     private var touchIDAutoUnlockTask: Task<Void, Never>?
+    private var revealHideTask: Task<Void, Never>?
 
     init() {
         toggleObserver = NotificationCenter.default.addObserver(
@@ -73,6 +75,14 @@ class LockController: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.revealOnFirstInput()
+            }
+        }
+
+        dismissRevealObserver = NotificationCenter.default.addObserver(
+            forName: .bilakhDismissReveal, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.dismissReveal()
             }
         }
 
@@ -162,6 +172,9 @@ class LockController: ObservableObject {
         if let obs = sessionActiveObserver { NSWorkspace.shared.notificationCenter.removeObserver(obs) }
         if let obs = inputBlockerFailedObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = pingObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = inputAttemptObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = dismissRevealObserver { NotificationCenter.default.removeObserver(obs) }
+        revealHideTask?.cancel()
     }
 
     // MARK: - Public
@@ -299,12 +312,40 @@ class LockController: ObservableObject {
         }
     }
 
-    /// First blocked keystroke/click while locked: wake the lock screen up. Plays
-    /// the lock sound and pops the mascot in. Idempotent — later input is ignored.
+    /// A blocked keystroke/click while locked: wake the lock screen up. Plays the
+    /// lock sound and pops the mascot in, then hides itself again after a few
+    /// seconds so the screen goes back to passing for an unlocked desktop — the
+    /// gag can be sprung repeatedly on the same lock.
+    ///
+    /// While already revealed, further input just restarts the countdown rather
+    /// than re-triggering the sound.
     func revealOnFirstInput() {
-        guard state == .locked, !revealed else { return }
-        revealed = true
-        SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
+        guard state == .locked else { return }
+
+        if !revealed {
+            revealed = true
+            SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
+        }
+
+        scheduleRevealHide()
+    }
+
+    /// Hide the mascot/message and drop back to the bare screenshot. Safe to call
+    /// when nothing is showing.
+    func dismissReveal() {
+        revealHideTask?.cancel()
+        revealHideTask = nil
+        guard revealed else { return }
+        revealed = false
+    }
+
+    private func scheduleRevealHide() {
+        revealHideTask?.cancel()
+        revealHideTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: Constants.Timing.revealVisibleNs)
+            guard !Task.isCancelled else { return }
+            self?.dismissReveal()
+        }
     }
 
     /// Quick unlock via hotkey — no auth.
@@ -457,6 +498,8 @@ class LockController: ObservableObject {
     private func unlock() {
         touchIDAutoUnlockTask?.cancel()
         touchIDAutoUnlockTask = nil
+        revealHideTask?.cancel()
+        revealHideTask = nil
         authenticator.cancelAll()
         stopAccessibilityMonitoring()
         stopTimer()
@@ -473,6 +516,8 @@ class LockController: ObservableObject {
     private func forceUnlock() {
         touchIDAutoUnlockTask?.cancel()
         touchIDAutoUnlockTask = nil
+        revealHideTask?.cancel()
+        revealHideTask = nil
         authenticationInProgress = false
         isAuthenticating = false
         authenticator.cancelAll()

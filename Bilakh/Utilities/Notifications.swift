@@ -8,6 +8,8 @@ extension Notification.Name {
     static let bilakhInputBlockerFailed = Notification.Name("bilakhInputBlockerFailed")
     /// Posted on the first key/click swallowed by the shield — wakes the lock screen.
     static let bilakhInputAttempt = Notification.Name("bilakhInputAttempt")
+    /// Posted on Esc while locked — hides an already-revealed gag immediately.
+    static let bilakhDismissReveal = Notification.Name("bilakhDismissReveal")
     static let bilakhSessionLost = Notification.Name("bilakhSessionLost")
     static let toggleBilakh = Notification.Name("toggleBilakh")
     static let bilakhHotkeyPreferenceChanged = Notification.Name("bilakhHotkeyPreferenceChanged")

@@ -28,6 +28,7 @@ enum Constants {
     enum Timing {
         static let inputBlockerDelayNs: UInt64 = 50_000_000           // 50ms
         static let unlockSuccessAnimNs: UInt64 = 400_000_000          // 400ms
+        static let revealVisibleNs: UInt64 = 5_000_000_000            // 5s before the gag hides again
         static let errorDisplayBeforeForceUnlockNs: UInt64 = 1_500_000_000 // 1.5s
         static let errorAutoClearNs: UInt64 = 5_000_000_000           // 5s
         static let authRateLimitCooldown: TimeInterval = 30.0         // seconds
