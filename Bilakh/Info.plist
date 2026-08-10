@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSAccessibilityUsageDescription</key>
 	<string>Bilakh needs Accessibility access to block keyboard and mouse input while your lock screen is active.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Bilakh can snap a photo of whoever tries the lock screen and failed to unlock, saved to your Downloads folder.</string>
 	<!-- Sparkle auto-update is disabled in this fork. The upstream feed pointed at
 	     the original author's domain; the renamed variant is a domain nobody owns,
 	     so leaving it configured would poll a registerable third-party host on every

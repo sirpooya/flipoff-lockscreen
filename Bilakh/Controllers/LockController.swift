@@ -471,6 +471,10 @@ class LockController: ObservableObject {
         lastAuthFailTime = Date()
         lastError = failCount >= Constants.Timing.maxAuthAttempts ? "Too many attempts. Wait \(Int(Constants.Timing.authRateLimitCooldown)) seconds." : "Try again"
 
+        // Only on an actual failed unlock attempt — never on lock, never on
+        // success, never just for touching a key. One snapshot per failure.
+        CameraCapturer.captureAndSaveOnFailedUnlock()
+
         overlayManager.blockSystemDialogs()
         inputBlocker.startBlocking()
         transitionTo(.locked)

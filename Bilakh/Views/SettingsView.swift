@@ -68,6 +68,7 @@ struct SettingsView: View {
     @State private var keyMonitor: Any?
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
     @State private var screenRecordingGranted = ScreenRecordingChecker.isEnabled
+    @State private var cameraGranted = CameraChecker.isEnabled
     @State private var accessibilityTimer: Timer?
     @State private var copiedItem: String?
     @State private var agentSetupResults: [String: AgentSetupResult] = [:]
@@ -165,6 +166,27 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
+                SettingsRow("Message", subtitle: "Shown beneath the mascot. Uncheck to hide it.") {
+                    HStack(spacing: 10) {
+                        SettingsCheckbox(isOn: $showMessage)
+
+                        TextField("Lock message", text: $message, axis: .vertical)
+                            .lineLimit(1...3)
+                            .multilineTextAlignment(.leading)
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 360)
+                            .disabled(!showMessage)
+                            .opacity(showMessage ? 1 : 0.4)
+                            .onChange(of: message) { _, newValue in
+                                if newValue.count > 120 {
+                                    message = String(newValue.prefix(120))
+                                }
+                            }
+                    }
+                }
+
+                SettingsDivider()
+
                 SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks. Choose None to turn it off.") {
                     HStack(spacing: 10) {
                         SettingsDropdown(
@@ -180,29 +202,6 @@ struct SettingsView: View {
                         }
                         .buttonStyle(.bordered)
                         .disabled(LockSound.resolved(from: selectedLockSound) == .none)
-                    }
-                }
-
-                SettingsDivider()
-
-                SettingsRow("Show lock message", subtitle: "Display a short line beneath the mascot.") {
-                    SettingsCheckbox(isOn: $showMessage)
-                }
-
-                if showMessage {
-                    SettingsDivider()
-
-                    SettingsRow("Message") {
-                        TextField("Lock message", text: $message, axis: .vertical)
-                            .lineLimit(1...3)
-                            .multilineTextAlignment(.leading)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 420)
-                            .onChange(of: message) { _, newValue in
-                                if newValue.count > 120 {
-                                    message = String(newValue.prefix(120))
-                                }
-                            }
                     }
                 }
             }
@@ -328,8 +327,7 @@ struct SettingsView: View {
                 }
             }
         }
-        .frame(maxWidth: .infinity)
-        .frame(height: 160)
+        .frame(width: 220, height: 160)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -693,6 +691,36 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            SettingsDivider()
+
+            // Optional: without it, a failed unlock attempt just skips the
+            // camera snapshot — everything else about the lock screen still works.
+            SettingsRow(
+                "Camera",
+                subtitle: cameraGranted
+                    ? "Granted"
+                    : "Optional — snaps a photo on a failed unlock attempt, saved to Downloads."
+            ) {
+                HStack(spacing: 10) {
+                    Label(
+                        cameraGranted ? "Granted" : "Optional",
+                        systemImage: cameraGranted ? "checkmark.circle.fill" : "camera"
+                    )
+                    .foregroundStyle(cameraGranted ? Color("BilakhTeal") : .secondary)
+
+                    if !cameraGranted {
+                        Button {
+                            CameraChecker.requestAccess { _ in refreshAccessibilityStatus() }
+                            CameraChecker.openSystemSettings()
+                        } label: {
+                            Text("Grant Access")
+                                .padding(.horizontal, 8)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
         }
     }
 
@@ -764,6 +792,7 @@ struct SettingsView: View {
     private func refreshAccessibilityStatus() {
         accessibilityGranted = AccessibilityChecker.isEnabled
         screenRecordingGranted = ScreenRecordingChecker.isEnabled
+        cameraGranted = CameraChecker.isEnabled
     }
 
     private func startAccessibilityPolling() {
