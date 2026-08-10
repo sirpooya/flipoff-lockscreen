@@ -3,7 +3,7 @@ set -e
 
 APP_NAME="Lockpaw"
 BUNDLE_ID="com.eriknielsen.lockpaw"
-SIGNING_IDENTITY="Developer ID Application: Erik Nielsen (78ACS592J2)"
+SIGNING_IDENTITY="Developer ID Application: "
 APPLE_ID="erik@sorkila.com"
 TEAM_ID="78ACS592J2"
 

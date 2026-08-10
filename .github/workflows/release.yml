@@ -38,7 +38,7 @@ jobs:
       # Requires secrets:
       #   CERTIFICATE_P12_BASE64  — base64-encoded Developer ID Application .p12
       #   CERTIFICATE_PASSWORD    — password for the .p12 file
-      #   DEVELOPER_ID_APPLICATION — identity name, e.g. "Developer ID Application: Erik Nielsen (XXXXXXXXXX)"
+      #   DEVELOPER_ID_APPLICATION — identity name, e.g. "Developer ID Application: Pooya Kamel (XXXXXXXXXX)"
       #   NOTARIZE_APPLE_ID       — Apple ID email for notarytool
       #   NOTARIZE_PASSWORD       — app-specific password for notarytool
       #   APPLE_TEAM_ID           — 10-char team ID

@@ -3,8 +3,8 @@ import AppKit
 import ServiceManagement
 import Carbon
 
-private let buyMeACoffeeURL = URL(string: "https://www.buymeacoffee.com/eriknielsen")!
-private let creatorURL = URL(string: "https://sorkila.com")!
+private let buyMeACoffeeURL = URL(string: "https://buymeacoffee.com/sirpooya")!
+private let repoURL = URL(string: "https://github.com/sirpooya/bilakh-lock")!
 private let settingsAccentColor = Color("BilakhTeal")
 
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
@@ -680,14 +680,14 @@ struct SettingsView: View {
             }
 
             SettingsPanel {
-                SettingsRow("Made by Erik Nielsen") {
-                    Link("sorkila.com", destination: creatorURL)
+                SettingsRow("Made by Pooya") {
+                    Link("Github", destination: repoURL)
                         .buttonStyle(.link)
                 }
 
                 SettingsDivider()
 
-                Text("Bilakh is a visual privacy tool. It helps prevent accidental input while your screen is guarded. For security, use your Mac's lock screen (Ctrl+Cmd+Q).")
+                Text("Bilakh is a visual privacy tool. It helps prevent accidental input while your screen is guarded. For security, use your Mac's lock screen (Ctrl+Cmd+Q). Forked from lockpaw by Erik Nielsen.")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
