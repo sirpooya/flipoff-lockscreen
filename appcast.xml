@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+    <channel>
+        <title>Bilakh</title>
+        <link>https://raw.githubusercontent.com/sirpooya/osx-bilakh-locksceen/main/appcast.xml</link>
+        <description>Most recent changes to Bilakh.</description>
+        <language>en</language>
+        <item>
+            <title>1.1.2</title>
+            <pubDate>Mon, 10 Aug 2026 18:08:14 +0000</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>1.1.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/commits/v1.1.2
+            ]]></description>
+            <enclosure
+                url="https://github.com/sirpooya/osx-bilakh-locksceen/releases/download/v1.1.2/Bilakh-v1.1.2.zip"
+                length="2312004"
+                type="application/octet-stream"
+                sparkle:edSignature="a0RebJ4W0m4IlVYeJedDVgqMhUd8HR0ltPNN4+nc1CALpmk6SZXOxv2IO1c2CNq3ARfOjvJ6ycargY6PvftoBQ==" />
+        </item>
+    </channel>
+</rss>
