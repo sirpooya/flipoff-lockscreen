@@ -105,13 +105,19 @@ struct LockScreenView: View {
                                     .foregroundStyle(Color("BilakhError"))
                                     .shadow(color: Color("BilakhError").opacity(0.15), radius: 8)
                             } else if showMessage {
-                                // Big and black, not the quiet white body type the
-                                // other states use — this is the punchline of the
-                                // prank, so it lands like a shout.
-                                Text(message)
-                                    .font(.system(size: compact ? 44 : 76, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(.black)
-                                    .scaleEffect(messagePopped ? 1 : 0.4)
+                                // Big and white with a bold outline, not the quiet
+                                // small white body type the other states use — this
+                                // is the punchline of the prank, so it lands like a
+                                // shout no matter what's behind it in the backdrop.
+                                OutlinedText(
+                                    message,
+                                    font: .system(size: compact ? 44 : 76, weight: .heavy, design: .rounded),
+                                    fill: .white,
+                                    stroke: .black,
+                                    strokeWidth: 4
+                                )
+                                .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+                                .scaleEffect(messagePopped ? 1 : 0.4)
                             }
                         }
                         .multilineTextAlignment(.center)

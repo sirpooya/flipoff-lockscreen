@@ -13,6 +13,8 @@ enum Constants {
 
     /// UserDefaults key: play a sound on agent ping. Off by default for shared spaces.
     static let agentPingSoundKey = "agentPingSound"
+    static let cameraOnFailedUnlockKey = "cameraOnFailedUnlock"
+    static let defaultCameraOnFailedUnlock = true
 
     /// Treatment applied to the frozen screenshot behind the lock UI. Exposed as
     /// defaults so the dim can be dialed without a rebuild — at 0 the desktop shows

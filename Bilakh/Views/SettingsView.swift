@@ -60,6 +60,7 @@ struct SettingsView: View {
     @AppStorage("hotkeyDisplay") private var hotkeyDisplay = HotkeyConfig.defaultDisplay
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.agentPingSoundKey) private var agentPingSound = false
+    @AppStorage(Constants.cameraOnFailedUnlockKey) private var cameraOnFailedUnlock = Constants.defaultCameraOnFailedUnlock
 
 
     @State private var selectedSection: SettingsSection = .lockScreen
@@ -692,17 +693,16 @@ struct SettingsView: View {
             SettingsRow(
                 "Camera",
                 subtitle: cameraGranted
-                    ? "Granted"
+                    ? "Snap a photo on a failed unlock attempt, saved to Downloads."
                     : "Optional — snaps a photo on a failed unlock attempt, saved to Downloads."
             ) {
                 HStack(spacing: 10) {
-                    Label(
-                        cameraGranted ? "Granted" : "Optional",
-                        systemImage: cameraGranted ? "checkmark.circle.fill" : "camera"
-                    )
-                    .foregroundStyle(cameraGranted ? Color("BilakhTeal") : .secondary)
+                    if cameraGranted {
+                        SettingsCheckbox(isOn: $cameraOnFailedUnlock)
+                    } else {
+                        Label("Optional", systemImage: "camera")
+                            .foregroundStyle(.secondary)
 
-                    if !cameraGranted {
                         Button {
                             // Only registers Bilakh in the Camera privacy pane once
                             // this request actually resolves — opening System

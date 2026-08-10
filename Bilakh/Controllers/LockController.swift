@@ -473,7 +473,12 @@ class LockController: ObservableObject {
 
         // Only on an actual failed unlock attempt — never on lock, never on
         // success, never just for touching a key. One snapshot per failure.
-        CameraCapturer.captureAndSaveOnFailedUnlock()
+        // Gated on its own Settings toggle (default on).
+        let cameraEnabled = UserDefaults.standard.object(forKey: Constants.cameraOnFailedUnlockKey) as? Bool
+            ?? Constants.defaultCameraOnFailedUnlock
+        if cameraEnabled {
+            CameraCapturer.captureAndSaveOnFailedUnlock()
+        }
 
         overlayManager.blockSystemDialogs()
         inputBlocker.startBlocking()
