@@ -7,6 +7,9 @@ enum LockSound: String, CaseIterable, Identifiable {
     case none
     case normalFart
     case wetFart
+    case ahah
+    case bazinga
+    case muaHaHa
 
     static let storageKey = "lockSound"
     static let defaultValue = none.rawValue
@@ -18,6 +21,9 @@ enum LockSound: String, CaseIterable, Identifiable {
         case .none: return "None"
         case .normalFart: return "Normal Fart"
         case .wetFart: return "Wet Fart"
+        case .ahah: return "Ah Ah"
+        case .bazinga: return "Bazinga"
+        case .muaHaHa: return "Mua Ha Ha"
         }
     }
 
@@ -27,6 +33,9 @@ enum LockSound: String, CaseIterable, Identifiable {
         case .none: return nil
         case .normalFart: return "normal-fart"
         case .wetFart: return "wet-fart"
+        case .ahah: return "ahah"
+        case .bazinga: return "bazinga"
+        case .muaHaHa: return "mua-ha-ha"
         }
     }
 
