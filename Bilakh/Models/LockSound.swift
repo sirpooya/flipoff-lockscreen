@@ -21,7 +21,7 @@ enum LockSound: String, CaseIterable, Identifiable {
         case .none: return "None"
         case .normalFart: return "Normal Fart"
         case .wetFart: return "Wet Fart"
-        case .ahah: return "Ah Ah"
+        case .ahah: return "Ahah"
         case .bazinga: return "Bazinga"
         case .muaHaHa: return "Mua Ha Ha"
         }
