@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @ObservedObject var controller: LockController
+    @ObservedObject private var updater = UpdateController.shared
 
     var body: some View {
         Group {
@@ -43,6 +44,16 @@ struct MenuBarView: View {
                 Text("Settings\u{2026}")
             }
             .keyboardShortcut(",")
+
+            // Hidden while locked — the updater refuses to run then anyway, and a
+            // relaunch prompt over a live shield would be an unlock the hotkey never
+            // authorised.
+            if controller.state == .unlocked {
+                Button("Check for Updates\u{2026}") {
+                    updater.checkForUpdates()
+                }
+                .disabled(!updater.canCheckForUpdates)
+            }
 
             Button("Quit Bilakh") {
                 NSApplication.shared.terminate(nil)

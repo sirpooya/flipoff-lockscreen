@@ -10,6 +10,11 @@ settings:
     SWIFT_VERSION: "5.9"
     MACOSX_DEPLOYMENT_TARGET: "14.0"
 
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.9.5"
+
 schemes:
   Bilakh:
     build:
@@ -51,6 +56,7 @@ targets:
           # SharedSupport, not MacOS — `bilakh` would collide with the app binary
           # `Bilakh` on case-insensitive filesystems (DMG/Applications).
           destination: sharedSupport
+      - package: Sparkle
   BilakhCLI:
     type: tool
     platform: macOS

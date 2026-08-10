@@ -45,6 +45,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // delegate before launch completes (required for foreground banner presentation).
         _ = AgentNotifier.shared
 
+        // Starts Sparkle's scheduled check cycle. Safe at launch: the updater only
+        // hits the network on its own schedule, and its delegate refuses any check
+        // while a lock is up.
+        _ = UpdateController.shared
+
         if UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
             requestScreenRecordingIfNeeded()
         }

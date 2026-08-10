@@ -22,3 +22,9 @@ build/
 # Local-only (never commit)
 MARKETING.md
 lockpaw-web/
+
+# Sparkle EdDSA private key — lives in the login keychain and the
+# SPARKLE_PRIVATE_KEY repo secret, never in the tree.
+*.pem
+sparkle_key*
+exported_key*

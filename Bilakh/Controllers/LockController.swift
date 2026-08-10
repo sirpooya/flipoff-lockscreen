@@ -8,6 +8,13 @@ private let logger = Logger(subsystem: "in.pooya.bilakh", category: "LockControl
 
 @MainActor
 class LockController: ObservableObject {
+    /// True whenever *any* lock is up or in transition. Mirrors `state` for callers
+    /// that can't reach the instance — the controller is a `@StateObject` owned by
+    /// `BilakhApp`, but `UpdateController` is a singleton with no handle on it and
+    /// needs to know whether a Sparkle dialog would land on top of a live shield.
+    /// Maintained solely by `transitionTo`, alongside `state`.
+    static private(set) var isAnyLockActive = false
+
     @Published private(set) var state: LockState = .unlocked
     @Published var lockStartTime: Date?
     @Published var elapsedTime: TimeInterval = 0
@@ -518,6 +525,7 @@ class LockController: ObservableObject {
             return false
         }
         state = newState
+        LockController.isAnyLockActive = (newState != .unlocked)
         return true
     }
 

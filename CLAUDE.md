@@ -73,7 +73,51 @@ Development identity, not ad-hoc. This matters twice:
 
 No Developer ID / notarization — that needs a paid Program enrollment issuing a
 Developer ID Application cert, which isn't in the keychain. Fine for local use on
-your own Macs; would show Gatekeeper warnings if ever distributed as a `.dmg`.
+your own Macs; the released `.zip` shows a Gatekeeper warning on first open
+(right-click → Open).
+
+## Auto-update (Sparkle)
+
+Sparkle 2.9.5, re-added after the fork had stripped it. The original removal reason
+still stands and is what shapes the setup: the upstream feed pointed at
+`getbilakh.com`, a domain nobody owns. The feed now lives in this repo
+(`appcast.xml` on `main`, served via `raw.githubusercontent.com`), so there is no
+registerable third-party host in the update path.
+
+- **EdDSA is the actual trust anchor, not Apple signing.** Releases ship unsigned
+  and un-notarized, so a `.zip` off the network carries no Apple guarantee. What
+  makes that safe is `SUPublicEDKey` in Info.plist: Sparkle refuses any archive
+  whose `sparkle:edSignature` doesn't verify against it. Private half lives in the
+  login keychain and in the `SPARKLE_PRIVATE_KEY` repo secret — **if that key is
+  ever lost, no existing install can be updated again**, since they all validate
+  against the baked-in public key.
+- **`UpdateController` refuses to check while locked** (`LockController
+  .isAnyLockActive`, a static mirror of `state` maintained in `transitionTo`).
+  Sparkle's sheets would otherwise land on top of the shield and offer a relaunch —
+  an escape out of a lock that's supposed to require the hotkey or Touch ID.
+- **`LSUIElement` needs an activation-policy flip.** The app has no Dock tile and
+  never activates on its own, so Sparkle's windows would open unfocused behind
+  everything. The `SPUStandardUserDriverDelegate` hooks swap to `.regular` while a
+  Sparkle window is up and back to `.accessory` afterwards.
+- **`ditto`, never `zip -r`.** `zip -r` mangles the symlinks inside
+  `Sparkle.framework`; `ditto -c -k --keepParent` preserves the bundle.
+- Appcast generation is `scripts/update-appcast.py`, called from `release.yml` —
+  a file, not inline YAML, because heredoc'd XML inside an indented `run:` block
+  silently breaks the block scalar. It's idempotent (re-tagging replaces that
+  build's `<item>`) and validates the XML before the workflow commits it.
+
+## CI
+
+`ci.yml` builds unsigned (`CODE_SIGNING_ALLOWED=NO`) — GitHub runners have no Apple
+Development identity, so the Team-ID automatic signing in `project.yml` can't
+resolve there. It deliberately does **not** run `BilakhTests`: the test bundle is
+injected into the host app and needs a real signature (see the Team-ID `dlopen`
+trap above), so tests are a local-only affair.
+
+`release.yml` fires on `v*` tags: builds unsigned Release → `ditto` zip → signs with
+the EdDSA key → uploads to the GitHub Release → regenerates `appcast.xml` and
+commits it to `main`. It checks out `main` rather than the detached tag so that
+final commit has a branch to land on.
 
 ## Mascot / emoji
 
@@ -86,10 +130,6 @@ frame (Text has no scale-to-fit).
 
 ## Things intentionally NOT done
 
-- **Sparkle/auto-update was removed entirely**, not just disabled. The renamed
-  fork's feed URL (`getbilakh.com`) is a domain nobody owns — leaving it wired up
-  would poll an unclaimed third-party host on every launch. Package, delegate,
-  Settings UI: all gone. `otool -L` on the built binary should show no Sparkle link.
 - **No sandboxing.** `com.apple.security.app-sandbox = false` in the entitlements —
   inherited from lockpaw, needed for the unrestricted `CGEventTap` and
   `SCShareableContent`/`SCScreenshotManager` calls.

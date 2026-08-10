@@ -5,186 +5,177 @@ on:
     tags:
       - "v*"
 
+# Needs write access: the job uploads release assets AND commits the regenerated
+# appcast.xml back to main.
+permissions:
+  contents: write
+
 jobs:
   release:
     runs-on: macos-15
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout
+        # Check out main (not the detached tag) so the appcast commit at the end has
+        # a branch to land on. The tag points into main's history, so the built code
+        # is identical.
         uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Install dependencies
-        run: brew install xcodegen xcbeautify create-dmg
+        run: brew install xcodegen xcbeautify
 
       - name: Generate Xcode project
         run: xcodegen generate
 
       # ── Build unsigned release ──────────────────────────────────────────
+      # No Developer ID cert is available (that needs paid Program enrollment), so
+      # the app ships unsigned. Gatekeeper will require right-click → Open on first
+      # launch. Update integrity does not depend on Apple signing here — Sparkle
+      # verifies the EdDSA signature below against SUPublicEDKey in Info.plist and
+      # refuses anything that doesn't match.
       - name: Build release (unsigned)
         run: |
           set -o pipefail
-          xcodebuild -project Lockpaw.xcodeproj \
-            -scheme Lockpaw \
+          xcodebuild -project Bilakh.xcodeproj \
+            -scheme Bilakh \
             -configuration Release \
             -derivedDataPath build/DerivedData \
             -destination 'platform=macOS' \
             CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             clean build 2>&1 | xcbeautify
 
-      # ── Import signing certificate (conditional) ────────────────────────
-      # Requires secrets:
-      #   CERTIFICATE_P12_BASE64  — base64-encoded Developer ID Application .p12
-      #   CERTIFICATE_PASSWORD    — password for the .p12 file
-      #   DEVELOPER_ID_APPLICATION — identity name, e.g. "Developer ID Application: Pooya Kamel (XXXXXXXXXX)"
-      #   NOTARIZE_APPLE_ID       — Apple ID email for notarytool
-      #   NOTARIZE_PASSWORD       — app-specific password for notarytool
-      #   APPLE_TEAM_ID           — 10-char team ID
-      - name: Import signing certificate
-        if: env.HAS_SIGNING_SECRETS == 'true'
-        env:
-          HAS_SIGNING_SECRETS: ${{ secrets.CERTIFICATE_P12_BASE64 != '' }}
-          CERTIFICATE_P12_BASE64: ${{ secrets.CERTIFICATE_P12_BASE64 }}
-          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+      - name: Package zip
+        id: package
         run: |
-          # Create a temporary keychain
-          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
-          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+          set -euo pipefail
+          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+          TAG="${GITHUB_REF#refs/tags/}"
+          ZIP_NAME="Bilakh-${TAG}.zip"
 
-          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security set-keychain-settings -lut 900 "$KEYCHAIN_PATH"
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          test -d "$APP_PATH" || { echo "::error::$APP_PATH not found"; exit 1; }
 
-          # Import certificate
-          CERT_PATH=$RUNNER_TEMP/certificate.p12
-          echo "$CERTIFICATE_P12_BASE64" | base64 --decode > "$CERT_PATH"
-          security import "$CERT_PATH" \
-            -k "$KEYCHAIN_PATH" \
-            -P "$CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign
-          rm "$CERT_PATH"
+          mkdir -p build/dist
+          # ditto --keepParent preserves the .app bundle structure and resource forks;
+          # `zip -r` would mangle symlinks inside Sparkle.framework.
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "build/dist/${ZIP_NAME}"
 
-          # Allow codesign to access the keychain
-          security set-key-partition-list -S apple-tool:,apple: \
-            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          SHORT_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
+          BUILD_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Contents/Info.plist")
+          MIN_SYSTEM=$(/usr/libexec/PlistBuddy -c "Print :LSMinimumSystemVersion" "$APP_PATH/Contents/Info.plist")
 
-      # ── Sign, package DMG, notarize (conditional) ───────────────────────
-      - name: Determine if signing is available
-        id: check-secrets
-        run: |
-          if [ -n "$HAS_SECRETS" ]; then
-            echo "can_sign=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "can_sign=false" >> "$GITHUB_OUTPUT"
-          fi
+          {
+            echo "tag=${TAG}"
+            echo "zip_name=${ZIP_NAME}"
+            echo "zip_path=build/dist/${ZIP_NAME}"
+            echo "short_version=${SHORT_VERSION}"
+            echo "build_version=${BUILD_VERSION}"
+            echo "min_system=${MIN_SYSTEM}"
+            echo "length=$(stat -f%z "build/dist/${ZIP_NAME}")"
+          } >> "$GITHUB_OUTPUT"
+
+      # ── Sign the update for Sparkle ─────────────────────────────────────
+      # SPARKLE_PRIVATE_KEY is the base64 EdDSA private key printed by
+      # `generate_keys -x`. Without it the job fails loudly rather than publishing an
+      # update the app would silently reject.
+      - name: Sign update (EdDSA)
+        id: sign
         env:
-          HAS_SECRETS: ${{ secrets.CERTIFICATE_P12_BASE64 }}
-
-      - name: Sign app with Developer ID
-        if: steps.check-secrets.outputs.can_sign == 'true'
-        env:
-          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
         run: |
-          APP_PATH="build/DerivedData/Build/Products/Release/Lockpaw.app"
-          SPARKLE_FW="${APP_PATH}/Contents/Frameworks/Sparkle.framework"
-          SPARKLE_VER="${SPARKLE_FW}/Versions/B"
+          set -euo pipefail
 
-          sign_item() {
-            codesign --force --sign "$DEVELOPER_ID_APPLICATION" --options runtime --timestamp "$1"
-          }
-
-          # Sign inside-out: Sparkle internals → XPC → framework → app
-          for xpc in "${SPARKLE_VER}/XPCServices/Downloader.xpc" "${SPARKLE_VER}/XPCServices/Installer.xpc"; do
-            [ -d "${xpc}" ] || continue
-            sign_item "${xpc}/Contents/MacOS/$(basename "${xpc}" .xpc)"
-            sign_item "${xpc}"
-          done
-
-          [ -f "${SPARKLE_VER}/Autoupdate" ] && sign_item "${SPARKLE_VER}/Autoupdate"
-
-          if [ -d "${SPARKLE_VER}/Updater.app" ]; then
-            sign_item "${SPARKLE_VER}/Updater.app/Contents/MacOS/Updater"
-            sign_item "${SPARKLE_VER}/Updater.app"
+          if [ -z "${SPARKLE_PRIVATE_KEY}" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY secret is not set — cannot sign the update."
+            echo "::error::Add it with: gh secret set SPARKLE_PRIVATE_KEY"
+            exit 1
           fi
 
-          sign_item "${SPARKLE_FW}"
-          sign_item "${APP_PATH}"
+          SIGN_UPDATE=$(find ~/Library/Developer/Xcode/DerivedData \
+            build/DerivedData/SourcePackages \
+            -name sign_update -type f 2>/dev/null | head -1)
 
-          codesign --verify --verbose "${APP_PATH}"
+          if [ -z "${SIGN_UPDATE}" ]; then
+            echo "::error::sign_update tool not found in resolved Sparkle package"
+            exit 1
+          fi
 
-      - name: Create DMG
-        if: steps.check-secrets.outputs.can_sign == 'true'
-        run: |
-          APP_PATH="build/DerivedData/Build/Products/Release/Lockpaw.app"
-          DMG_DIR="build/dmg"
-          DMG_PATH="build/Lockpaw.dmg"
+          # --ed-key-file reads the key from disk instead of the (absent) CI keychain,
+          # and keeps it out of the process list. printf, not echo, so no trailing
+          # newline is appended to the key material.
+          KEY_FILE="$RUNNER_TEMP/sparkle_key"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          trap 'rm -f "$KEY_FILE"' EXIT
 
-          mkdir -p "$DMG_DIR"
-          cp -R "$APP_PATH" "$DMG_DIR/"
+          # sign_update prints: sparkle:edSignature="…" length="…"
+          SIG_OUTPUT=$("$SIGN_UPDATE" "${{ steps.package.outputs.zip_path }}" --ed-key-file "$KEY_FILE")
+          echo "Signature line: $SIG_OUTPUT"
 
-          # Finder alias instead of symlink — symlinks show broken icon on Sonoma+
-          DMG_DIR_ABS="$(cd "$DMG_DIR" && pwd)"
-          osascript -e "tell application \"Finder\" to make new alias file at POSIX file \"${DMG_DIR_ABS}\" to POSIX file \"/Applications\""
-          mv "$DMG_DIR/Applications alias" "$DMG_DIR/Applications" 2>/dev/null || true
+          ED_SIG=$(echo "$SIG_OUTPUT" | sed -n 's/.*sparkle:edSignature="\([^"]*\)".*/\1/p')
+          if [ -z "$ED_SIG" ]; then
+            echo "::error::Failed to parse edSignature from sign_update output"
+            exit 1
+          fi
+          echo "ed_signature=${ED_SIG}" >> "$GITHUB_OUTPUT"
 
-          create-dmg \
-            --volname "Lockpaw" \
-            --volicon "scripts/dmg-volume-icon.icns" \
-            --background "scripts/dmg-background@2x.png" \
-            --window-pos 200 120 \
-            --window-size 660 400 \
-            --icon-size 96 \
-            --text-size 14 \
-            --icon "Lockpaw.app" 170 180 \
-            --hide-extension "Lockpaw.app" \
-            --icon "Applications" 490 180 \
-            --no-internet-enable \
-            "$DMG_PATH" \
-            "$DMG_DIR"
-
-      - name: Notarize DMG
-        if: steps.check-secrets.outputs.can_sign == 'true'
-        env:
-          NOTARIZE_APPLE_ID: ${{ secrets.NOTARIZE_APPLE_ID }}
-          NOTARIZE_PASSWORD: ${{ secrets.NOTARIZE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          DMG_PATH="build/Lockpaw.dmg"
-
-          xcrun notarytool submit "$DMG_PATH" \
-            --apple-id "$NOTARIZE_APPLE_ID" \
-            --password "$NOTARIZE_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-
-          xcrun stapler staple "$DMG_PATH"
-
-      # ── Create GitHub Release ───────────────────────────────────────────
+      # ── Publish the GitHub Release ──────────────────────────────────────
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          CAN_SIGN: ${{ steps.check-secrets.outputs.can_sign }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
+          set -euo pipefail
+          TAG="${{ steps.package.outputs.tag }}"
 
-          # Create release if it doesn't exist yet
-          if ! gh release view "$TAG" &>/dev/null; then
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --generate-notes
           fi
 
-          # Upload DMG if signing/notarization succeeded
-          if [ "$CAN_SIGN" = "true" ] && [ -f "build/Lockpaw.dmg" ]; then
-            gh release upload "$TAG" "build/Lockpaw.dmg#Lockpaw.dmg" --clobber
+          gh release upload "$TAG" \
+            "${{ steps.package.outputs.zip_path }}#${{ steps.package.outputs.zip_name }}" \
+            --clobber
+
+      # ── Regenerate and commit the appcast ───────────────────────────────
+      # The feed is served from raw.githubusercontent.com off main, so publishing an
+      # update means committing this file. Generation lives in scripts/update-appcast.py
+      # (XML templating inline in an indented YAML `run:` block is a heredoc trap).
+      - name: Update appcast.xml
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.package.outputs.tag }}"
+          NOTES=$(gh release view "$TAG" --json body -q .body 2>/dev/null || echo "")
+
+          python3 scripts/update-appcast.py \
+            --tag "$TAG" \
+            --short-version "${{ steps.package.outputs.short_version }}" \
+            --build-version "${{ steps.package.outputs.build_version }}" \
+            --min-system "${{ steps.package.outputs.min_system }}" \
+            --zip-name "${{ steps.package.outputs.zip_name }}" \
+            --length "${{ steps.package.outputs.length }}" \
+            --signature "${{ steps.sign.outputs.ed_signature }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --notes "$NOTES"
+
+          echo "── appcast.xml ──"
+          cat appcast.xml
+
+      - name: Commit appcast
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet appcast.xml 2>/dev/null && git ls-files --error-unmatch appcast.xml >/dev/null 2>&1; then
+            echo "appcast.xml unchanged — nothing to commit."
+            exit 0
           fi
 
-      # ── Cleanup keychain ────────────────────────────────────────────────
-      - name: Cleanup keychain
-        if: always()
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
-          if [ -f "$KEYCHAIN_PATH" ]; then
-            security delete-keychain "$KEYCHAIN_PATH"
-          fi
+          git add appcast.xml
+          git commit -m "Update appcast for ${{ steps.package.outputs.tag }}"
+          git push origin main

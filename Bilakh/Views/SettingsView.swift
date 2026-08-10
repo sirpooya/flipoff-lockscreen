@@ -63,6 +63,8 @@ struct SettingsView: View {
     @AppStorage(Constants.cameraOnFailedUnlockKey) private var cameraOnFailedUnlock = Constants.defaultCameraOnFailedUnlock
 
 
+    @ObservedObject private var updater = UpdateController.shared
+
     @State private var selectedSection: SettingsSection = .lockScreen
     @State private var isRecording = false
     @State private var hotkeyConflict: String?
@@ -758,6 +760,15 @@ struct SettingsView: View {
                             .font(.system(size: 14))
                             .foregroundStyle(.secondary)
                     }
+
+                    Spacer()
+
+                    Button("Check for Updates\u{2026}") {
+                        updater.checkForUpdates()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.regular)
+                    .disabled(!updater.canCheckForUpdates)
                 }
                 .padding(.vertical, 2)
             }
