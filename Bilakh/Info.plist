@@ -17,9 +17,20 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1.1</string>
+	<string>1.1.2</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>in.pooya.bilakh</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>bilakh</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
-	<string>12</string>
+	<string>13</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>
@@ -38,25 +49,17 @@
 	     lives in the login keychain (Sparkle's generate_keys) and in the repo secret
 	     SPARKLE_PRIVATE_KEY. Sparkle refuses any update whose signature doesn't
 	     verify against this key, which is what makes shipping unsigned/un-notarized
-	     zips over HTTPS safe from tampering. -->
+	     zips over HTTPS safe from tampering.
+
+	     NOTE: `PlistBuddy -c Set` rewrites this file and drops every comment. If you
+	     bump the version with it, restore this block afterwards. -->
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/sirpooya/osx-bilakh-locksceen/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>XPeIzL4GHFXBMLCP+A/vxqQE4Bn8tGi7jkw9sRBHXSc=</string>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>in.pooya.bilakh</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>bilakh</string>
-			</array>
-		</dict>
-	</array>
 </dict>
 </plist>
