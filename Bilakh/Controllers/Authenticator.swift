@@ -40,6 +40,39 @@ class Authenticator {
         }.value
     }
 
+    /// Touch ID only, no password fallback — used to quietly re-arm in the
+    /// background while locked so resting a finger on the sensor unlocks
+    /// instantly without the user having to invoke the hotkey first.
+    func authenticateWithBiometricsOnly(reason: String = "Unlock Bilakh") async -> Bool {
+        cancelPending()
+
+        let context = LAContext()
+        context.localizedCancelTitle = "Cancel"
+        activeContext = context
+
+        defer { activeContext = nil }
+
+        var error: NSError?
+        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
+            logger.info("Biometrics not available: \(error?.localizedDescription ?? "unknown")")
+            return false
+        }
+
+        return await Task.detached { [context] in
+            do {
+                return try await context.evaluatePolicy(
+                    .deviceOwnerAuthenticationWithBiometrics,
+                    localizedReason: reason
+                )
+            } catch {
+                await MainActor.run {
+                    logger.info("Biometric auto-unlock cancelled or failed: \(error.localizedDescription)")
+                }
+                return false
+            }
+        }.value
+    }
+
     /// Authenticate with macOS password (system dialog, user can click "Use Password").
     func authenticateWithPassword(reason: String = "Enter your password to unlock Bilakh") async -> Bool {
         cancelPending()

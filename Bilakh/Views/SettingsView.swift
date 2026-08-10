@@ -59,6 +59,7 @@ struct SettingsView: View {
     @FocusState private var customEmojiFieldFocused: Bool
     @AppStorage("hotkeyDisplay") private var hotkeyDisplay = HotkeyConfig.defaultDisplay
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
+    @AppStorage(HotkeyConfig.touchIDAutoUnlockKey) private var touchIDAutoUnlock = HotkeyConfig.defaultTouchIDAutoUnlock
     @AppStorage(Constants.agentPingSoundKey) private var agentPingSound = false
 
 
@@ -680,14 +681,18 @@ struct SettingsView: View {
             }
 
             SettingsPanel {
-                SettingsRow("Made by Pooya") {
+                SettingsRow(
+                    "Made by Pooya",
+                    subtitle: "Forked from lockpaw by Erik Nielsen.",
+                    subtitleSize: 11
+                ) {
                     Link("Github", destination: repoURL)
                         .buttonStyle(.link)
                 }
 
                 SettingsDivider()
 
-                Text("Bilakh is a visual privacy tool. It helps prevent accidental input while your screen is guarded. For security, use your Mac's lock screen (Ctrl+Cmd+Q). Forked from lockpaw by Erik Nielsen.")
+                Text("Bilakh is a visual privacy tool. It helps prevent accidental input while your screen is guarded. For security, use your Mac's lock screen (Ctrl+Cmd+Q).")
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -894,11 +899,13 @@ private struct SettingsTabButton: View {
 private struct SettingsRow<Control: View>: View {
     private let title: String
     private let subtitle: String?
+    private let subtitleSize: CGFloat
     private let control: Control
 
-    init(_ title: String, subtitle: String? = nil, @ViewBuilder control: () -> Control) {
+    init(_ title: String, subtitle: String? = nil, subtitleSize: CGFloat = 13, @ViewBuilder control: () -> Control) {
         self.title = title
         self.subtitle = subtitle
+        self.subtitleSize = subtitleSize
         self.control = control()
     }
 
@@ -911,7 +918,7 @@ private struct SettingsRow<Control: View>: View {
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(.system(size: 13))
+                        .font(.system(size: subtitleSize))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }

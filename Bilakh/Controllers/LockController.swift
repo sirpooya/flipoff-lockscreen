@@ -41,6 +41,7 @@ class LockController: ObservableObject {
     private var sessionWasLost = false
     private var lastAuthFailTime: Date?
     private var lastPingTime: Date?
+    private var touchIDAutoUnlockTask: Task<Void, Never>?
 
     init() {
         toggleObserver = NotificationCenter.default.addObserver(
@@ -233,6 +234,42 @@ class LockController: ObservableObject {
         startAccessibilityMonitoring()
         sessionWasLost = false
         transitionTo(.locked)
+        startTouchIDAutoUnlockIfNeeded()
+    }
+
+    /// Quietly re-arms Touch ID in the background while locked, so resting a
+    /// finger on the sensor unlocks immediately — no hotkey needed. Re-arms
+    /// after every failed/cancelled read until unlocked or the setting is off.
+    private func startTouchIDAutoUnlockIfNeeded() {
+        touchIDAutoUnlockTask?.cancel()
+        guard HotkeyConfig.touchIDAutoUnlockEnabled else { return }
+
+        touchIDAutoUnlockTask = Task { @MainActor [weak self] in
+            while let self, self.state == .locked, !Task.isCancelled {
+                if self.authenticationInProgress {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    continue
+                }
+
+                self.authenticationInProgress = true
+                let authenticated = await self.authenticator.authenticateWithBiometricsOnly()
+                self.authenticationInProgress = false
+
+                guard self.state == .locked, !Task.isCancelled else { return }
+
+                if authenticated {
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                    self.unlockSucceeded = true
+                    try? await Task.sleep(nanoseconds: Constants.Timing.unlockSuccessAnimNs)
+                    guard !Task.isCancelled else { return }
+                    self.unlock()
+                    return
+                }
+
+                // Brief pause before re-arming so a failed/cancelled read doesn't spin hot.
+                try? await Task.sleep(nanoseconds: 800_000_000)
+            }
+        }
     }
 
     /// Quick unlock via hotkey — no auth.
@@ -383,6 +420,8 @@ class LockController: ObservableObject {
     }
 
     private func unlock() {
+        touchIDAutoUnlockTask?.cancel()
+        touchIDAutoUnlockTask = nil
         stopAccessibilityMonitoring()
         stopTimer()
         errorClearTask?.cancel()
@@ -396,6 +435,8 @@ class LockController: ObservableObject {
     }
 
     private func forceUnlock() {
+        touchIDAutoUnlockTask?.cancel()
+        touchIDAutoUnlockTask = nil
         authenticationInProgress = false
         isAuthenticating = false
         authenticator.cancelPending()

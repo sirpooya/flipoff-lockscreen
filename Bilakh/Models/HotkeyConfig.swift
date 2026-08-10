@@ -7,12 +7,14 @@ struct HotkeyConfig {
     private static let displayKey = "hotkeyDisplay"
     private static let enabledKey = "hotkeyEnabled"
     static let requireAuthenticationToUnlockKey = "requireAuthenticationToUnlock"
+    static let touchIDAutoUnlockKey = "touchIDAutoUnlock"
 
     static let defaultKeyCode = 37
     static let defaultModifiers = cmdKey | shiftKey
     static let defaultDisplay = "Cmd+Shift+L"
     static let defaultEnabled = true
     static let defaultRequireAuthenticationToUnlock = false
+    static let defaultTouchIDAutoUnlock = false
 
     static var keyCode: Int {
         UserDefaults.standard.object(forKey: keyCodeKey) as? Int ?? defaultKeyCode
@@ -32,6 +34,10 @@ struct HotkeyConfig {
 
     static var requiresAuthenticationToUnlock: Bool {
         UserDefaults.standard.object(forKey: requireAuthenticationToUnlockKey) as? Bool ?? defaultRequireAuthenticationToUnlock
+    }
+
+    static var touchIDAutoUnlockEnabled: Bool {
+        UserDefaults.standard.object(forKey: touchIDAutoUnlockKey) as? Bool ?? defaultTouchIDAutoUnlock
     }
 
     static func saveKeyCode(_ value: Int) {
