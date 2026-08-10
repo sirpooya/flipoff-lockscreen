@@ -11,6 +11,14 @@ class Authenticator {
     /// `cancelPending()` invalidated the other's in-flight read.
     private var autoUnlockContext: LAContext?
 
+    /// True only where a biometric sensor actually exists and is enrolled. Macs
+    /// without Touch ID fail `canEvaluatePolicy` instantly, so the passive
+    /// listener must check this once rather than re-arming into a busy loop.
+    var isBiometricsAvailable: Bool {
+        var error: NSError?
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+    }
+
     /// Authenticate with Touch ID, with password fallback via system dialog.
     func authenticate(reason: String = "Unlock Bilakh") async -> Bool {
         cancelPending()

@@ -22,6 +22,9 @@ struct LockScreenView: View {
 
     @State private var phase: CGFloat = 0
     @State private var appeared = false
+    /// Mascot pop-in, kept separate from `appeared` so it can run on a springier
+    /// curve than the rest of the content group.
+    @State private var mascotPopped = false
     @State private var hoveringAuth = false
     @State private var shakeOffset: CGFloat = 0
     @State private var successScale: CGFloat = 1.0
@@ -77,8 +80,8 @@ struct LockScreenView: View {
                                 .opacity(controller.isAuthenticating ? 0.5 : 1)
                             }
                         }
-                        .scaleEffect(appeared ? 1 : 0.94)
-                        .opacity(appeared ? 1 : 0)
+                        .scaleEffect(mascotPopped ? 1 : 0.5)
+                        .opacity(mascotPopped ? 1 : 0)
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                         .animation(Constants.Anim.gentle, value: controller.unlockSucceeded)
@@ -218,6 +221,9 @@ struct LockScreenView: View {
         .environment(\.colorScheme, .dark)
         .onAppear {
             withAnimation(reduceMotion ? .none : .timingCurve(0.16, 1, 0.3, 1, duration: 0.6)) { appeared = true }
+            // Mascot pops in on a spring — scales up from 0.5 while fading in, a
+            // beat snappier than the surrounding text so it reads as the subject.
+            withAnimation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.6)) { mascotPopped = true }
             guard !reduceMotion else { return }
             withAnimation(Constants.Anim.breathe) { phase = Constants.Anim.breathePhaseTarget }
         }

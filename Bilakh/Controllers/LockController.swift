@@ -252,6 +252,10 @@ class LockController: ObservableObject {
         // Always armed — a finger on the sensor is unconditionally a valid way
         // in, independent of the "Require authentication" preference (which only
         // governs whether the *hotkey* still needs auth). No toggle of its own.
+        //
+        // Macs without a sensor (or with none enrolled) fail the policy check
+        // instantly, which would turn the re-arm loop into a busy spin.
+        guard authenticator.isBiometricsAvailable else { return }
 
         touchIDAutoUnlockTask = Task { @MainActor [weak self] in
             while let self, self.state == .locked, !Task.isCancelled {
