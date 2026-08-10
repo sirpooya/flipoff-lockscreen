@@ -380,6 +380,12 @@ struct SettingsView: View {
 
             SettingsDivider()
 
+            SettingsRow("Touch ID auto-unlock", subtitle: "Touch the sensor while locked — no shortcut needed.") {
+                SettingsCheckbox(isOn: $touchIDAutoUnlock)
+            }
+
+            SettingsDivider()
+
             SettingsRow("Global hotkey", subtitle: "Keep the shortcut active while Bilakh is running.") {
                 SettingsCheckbox(isOn: $hotkeyEnabled)
                     .onChange(of: hotkeyEnabled) { _, enabled in
