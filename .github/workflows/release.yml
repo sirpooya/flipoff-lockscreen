@@ -178,4 +178,20 @@ jobs:
 
           git add appcast.xml
           git commit -m "Update appcast for ${{ steps.package.outputs.tag }}"
-          git push origin main
+
+          # main can move while the build runs (it takes minutes). A plain push would
+          # be rejected and the release would ship with no feed entry — an update
+          # nobody is ever offered. Rebase onto whatever landed and retry.
+          for attempt in 1 2 3; do
+            if git push origin main; then
+              echo "appcast pushed."
+              exit 0
+            fi
+            echo "push rejected (attempt $attempt) — rebasing onto origin/main"
+            git pull --rebase origin main
+          done
+
+          echo "::error::Could not push appcast.xml after 3 attempts."
+          echo "::error::The release asset is uploaded but the feed was NOT updated —"
+          echo "::error::no client will be offered ${{ steps.package.outputs.tag }} until appcast.xml lands on main."
+          exit 1
