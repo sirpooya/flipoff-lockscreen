@@ -18,9 +18,16 @@ class InputBlocker {
     private var hotkeyObserver: NSObjectProtocol?
 
     private static let eventMask: CGEventMask = {
+        // Clicks and drags are swallowed alongside keys — without them the shield
+        // is only visual and a click lands on whatever sits underneath. Bare
+        // `.mouseMoved` is deliberately absent: the cursor should still glide over
+        // the lock screen, it just must not be able to actuate anything.
         let types: [CGEventType] = [
             .keyDown, .keyUp, .flagsChanged,
             .scrollWheel,
+            .leftMouseDown, .leftMouseUp, .leftMouseDragged,
+            .rightMouseDown, .rightMouseUp, .rightMouseDragged,
+            .otherMouseDown, .otherMouseUp, .otherMouseDragged,
             .tabletPointer, .tabletProximity
         ]
         return types.reduce(CGEventMask(0)) { mask, type in mask | (1 << type.rawValue) }

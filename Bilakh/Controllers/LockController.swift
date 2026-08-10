@@ -240,20 +240,28 @@ class LockController: ObservableObject {
     /// Quietly re-arms Touch ID in the background while locked, so resting a
     /// finger on the sensor unlocks immediately — no hotkey needed. Re-arms
     /// after every failed/cancelled read until unlocked or the setting is off.
+    ///
+    /// Deliberately does NOT set `authenticationInProgress`: that flag gates
+    /// `quickUnlock()`/`requestUnlock()`, so holding it across a ~30s pending
+    /// biometric read would bolt the hotkey shut and strand the user behind the
+    /// shield. This is a passive listener — it must never block a manual unlock.
+    /// It also uses its own LAContext (`biometricContextOwner: .autoUnlock`) so
+    /// a manual auth can cancel it without the two clobbering each other.
     private func startTouchIDAutoUnlockIfNeeded() {
         touchIDAutoUnlockTask?.cancel()
-        guard HotkeyConfig.touchIDAutoUnlockEnabled else { return }
+        // Always armed — a finger on the sensor is unconditionally a valid way
+        // in, independent of the "Require authentication" preference (which only
+        // governs whether the *hotkey* still needs auth). No toggle of its own.
 
         touchIDAutoUnlockTask = Task { @MainActor [weak self] in
             while let self, self.state == .locked, !Task.isCancelled {
+                // Stand down while a manual auth owns the sensor, then re-arm.
                 if self.authenticationInProgress {
                     try? await Task.sleep(nanoseconds: 500_000_000)
                     continue
                 }
 
-                self.authenticationInProgress = true
                 let authenticated = await self.authenticator.authenticateWithBiometricsOnly()
-                self.authenticationInProgress = false
 
                 guard self.state == .locked, !Task.isCancelled else { return }
 
@@ -422,6 +430,7 @@ class LockController: ObservableObject {
     private func unlock() {
         touchIDAutoUnlockTask?.cancel()
         touchIDAutoUnlockTask = nil
+        authenticator.cancelAll()
         stopAccessibilityMonitoring()
         stopTimer()
         errorClearTask?.cancel()
@@ -439,7 +448,7 @@ class LockController: ObservableObject {
         touchIDAutoUnlockTask = nil
         authenticationInProgress = false
         isAuthenticating = false
-        authenticator.cancelPending()
+        authenticator.cancelAll()
         stopAccessibilityMonitoring()
         stopTimer()
         errorClearTask?.cancel()

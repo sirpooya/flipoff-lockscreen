@@ -59,7 +59,6 @@ struct SettingsView: View {
     @FocusState private var customEmojiFieldFocused: Bool
     @AppStorage("hotkeyDisplay") private var hotkeyDisplay = HotkeyConfig.defaultDisplay
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
-    @AppStorage(HotkeyConfig.touchIDAutoUnlockKey) private var touchIDAutoUnlock = HotkeyConfig.defaultTouchIDAutoUnlock
     @AppStorage(Constants.agentPingSoundKey) private var agentPingSound = false
 
 
@@ -374,14 +373,8 @@ struct SettingsView: View {
 
             SettingsDivider()
 
-            SettingsRow("Require authentication", subtitle: "Ask for Touch ID or your Mac password before unlocking.") {
+            SettingsRow("Require authentication", subtitle: "Touch ID or your Mac password is needed to unlock. Touch the sensor any time while locked.") {
                 SettingsCheckbox(isOn: $requiresAuthenticationToUnlock)
-            }
-
-            SettingsDivider()
-
-            SettingsRow("Touch ID auto-unlock", subtitle: "Touch the sensor while locked — no shortcut needed.") {
-                SettingsCheckbox(isOn: $touchIDAutoUnlock)
             }
 
             SettingsDivider()

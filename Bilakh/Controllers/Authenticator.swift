@@ -6,6 +6,10 @@ private let logger = Logger(subsystem: "in.pooya.bilakh", category: "Authenticat
 @MainActor
 class Authenticator {
     private var activeContext: LAContext?
+    /// The passive Touch ID listener's context is tracked separately from
+    /// `activeContext`: they run concurrently, and a shared slot meant each one's
+    /// `cancelPending()` invalidated the other's in-flight read.
+    private var autoUnlockContext: LAContext?
 
     /// Authenticate with Touch ID, with password fallback via system dialog.
     func authenticate(reason: String = "Unlock Bilakh") async -> Bool {
@@ -44,13 +48,13 @@ class Authenticator {
     /// background while locked so resting a finger on the sensor unlocks
     /// instantly without the user having to invoke the hotkey first.
     func authenticateWithBiometricsOnly(reason: String = "Unlock Bilakh") async -> Bool {
-        cancelPending()
+        cancelPendingAutoUnlock()
 
         let context = LAContext()
         context.localizedCancelTitle = "Cancel"
-        activeContext = context
+        autoUnlockContext = context
 
-        defer { activeContext = nil }
+        defer { autoUnlockContext = nil }
 
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
@@ -105,8 +109,22 @@ class Authenticator {
         }.value
     }
 
+    /// Cancels a manual (hotkey-initiated) auth. Leaves the passive Touch ID
+    /// listener alone — it re-arms itself and must survive a cancelled manual auth.
     func cancelPending() {
         activeContext?.invalidate()
         activeContext = nil
+    }
+
+    /// Cancels only the passive Touch ID listener.
+    func cancelPendingAutoUnlock() {
+        autoUnlockContext?.invalidate()
+        autoUnlockContext = nil
+    }
+
+    /// Cancels everything — used on unlock/force-unlock teardown.
+    func cancelAll() {
+        cancelPending()
+        cancelPendingAutoUnlock()
     }
 }
