@@ -327,19 +327,12 @@ struct SettingsView: View {
                 }
             }
         }
-        .frame(width: 220, height: 160)
+        .aspectRatio(16.0 / 9.0, contentMode: .fit)
+        .frame(width: 220)
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
-        )
         .padding(16)
         .frame(maxWidth: .infinity)
         .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
-        )
     }
 
     private var shortcutSettings: some View {
@@ -711,8 +704,16 @@ struct SettingsView: View {
 
                     if !cameraGranted {
                         Button {
-                            CameraChecker.requestAccess { _ in refreshAccessibilityStatus() }
-                            CameraChecker.openSystemSettings()
+                            // Only registers Bilakh in the Camera privacy pane once
+                            // this request actually resolves — opening System
+                            // Settings before that finishes is why the app never
+                            // showed up there. If it's already been decided (a past
+                            // denial), the request resolves instantly with no
+                            // prompt, and only then do we fall back to Settings.
+                            CameraChecker.requestAccess { granted in
+                                refreshAccessibilityStatus()
+                                if !granted { CameraChecker.openSystemSettings() }
+                            }
                         } label: {
                             Text("Grant Access")
                                 .padding(.horizontal, 8)
