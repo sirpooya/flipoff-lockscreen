@@ -208,8 +208,17 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                SettingsRow("Camera on failed unlock", subtitle: "Snap a photo of the attempt and save it to Downloads.") {
-                    SettingsCheckbox(isOn: $cameraOnFailedUnlock)
+                SettingsRow(
+                    "Camera on failed unlock",
+                    subtitle: cameraGranted
+                        ? "Snap a photo of the attempt and save it to Downloads."
+                        : "Snap a photo of the attempt and save it to Downloads. Grant Camera access in Permissions first."
+                ) {
+                    Toggle("", isOn: $cameraOnFailedUnlock)
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .tint(settingsAccentColor)
+                        .disabled(!cameraGranted)
                 }
             }
 

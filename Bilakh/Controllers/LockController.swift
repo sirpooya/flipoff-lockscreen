@@ -50,6 +50,7 @@ class LockController: ObservableObject {
     private var lastPingTime: Date?
     private var touchIDAutoUnlockTask: Task<Void, Never>?
     private var revealHideTask: Task<Void, Never>?
+    private var hasCapturedThisLock = false
 
     init() {
         toggleObserver = NotificationCenter.default.addObserver(
@@ -246,6 +247,7 @@ class LockController: ObservableObject {
         lastError = nil
         unlockSucceeded = false
         revealed = false
+        hasCapturedThisLock = false
         lastAuthFailTime = nil
         errorClearTask?.cancel()
 
@@ -325,9 +327,26 @@ class LockController: ObservableObject {
         if !revealed {
             revealed = true
             SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
+            // This — someone touching the machine while it's locked — IS the
+            // "wrong attempt" for this app, not a resolved Touch ID/password
+            // failure. Gating on `handleAuthFailure()` alone meant the shot never
+            // fired unless the whole system auth dialog round-tripped to a
+            // failure, which most interactions with the shield never reach.
+            captureIntruderPhotoIfEnabled()
         }
 
         scheduleRevealHide()
+    }
+
+    /// Snapshots whoever's at the keyboard, once per lock. Gated on its own
+    /// Settings toggle (default on) and silently skipped without Camera access.
+    private func captureIntruderPhotoIfEnabled() {
+        guard !hasCapturedThisLock else { return }
+        let cameraEnabled = UserDefaults.standard.object(forKey: Constants.cameraOnFailedUnlockKey) as? Bool
+            ?? Constants.defaultCameraOnFailedUnlock
+        guard cameraEnabled else { return }
+        hasCapturedThisLock = true
+        CameraCapturer.captureAndSaveOnFailedUnlock()
     }
 
     /// Hide the mascot/message and drop back to the bare screenshot. Safe to call
@@ -471,14 +490,12 @@ class LockController: ObservableObject {
         lastAuthFailTime = Date()
         lastError = failCount >= Constants.Timing.maxAuthAttempts ? "Too many attempts. Wait \(Int(Constants.Timing.authRateLimitCooldown)) seconds." : "Try again"
 
-        // Only on an actual failed unlock attempt — never on lock, never on
-        // success, never just for touching a key. One snapshot per failure.
-        // Gated on its own Settings toggle (default on).
-        let cameraEnabled = UserDefaults.standard.object(forKey: Constants.cameraOnFailedUnlockKey) as? Bool
-            ?? Constants.defaultCameraOnFailedUnlock
-        if cameraEnabled {
-            CameraCapturer.captureAndSaveOnFailedUnlock()
-        }
+        // Also covered by `revealOnFirstInput()`, which fires far more reliably
+        // (an explicit auth failure requires the whole Touch ID/password dialog
+        // to round-trip); this just catches the case where that reveal somehow
+        // didn't happen first. `captureIntruderPhotoIfEnabled()` no-ops past the
+        // first shot per lock either way.
+        captureIntruderPhotoIfEnabled()
 
         overlayManager.blockSystemDialogs()
         inputBlocker.startBlocking()

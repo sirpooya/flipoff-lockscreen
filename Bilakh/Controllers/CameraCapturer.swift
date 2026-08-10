@@ -79,10 +79,12 @@ enum CameraCapturer {
             return
         }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let filename = "Bilakh Intruder \(formatter.string(from: Date())).jpg"
-        let url = downloads.appendingPathComponent(filename)
+        let timestamp = Date()
+        let fileStamp = DateFormatter()
+        fileStamp.dateFormat = "yyyy-MM-dd HH.mm.ss"
+        let baseName = "Bilakh Intruder \(fileStamp.string(from: timestamp))"
+        let imageURL = downloads.appendingPathComponent("\(baseName).jpg")
+        let descriptionURL = downloads.appendingPathComponent("\(baseName).txt")
 
         let rep = NSBitmapImageRep(cgImage: image)
         guard let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else {
@@ -91,10 +93,32 @@ enum CameraCapturer {
         }
 
         do {
-            try data.write(to: url)
-            logger.notice("Saved failed-unlock snapshot to \(url.lastPathComponent, privacy: .public)")
+            try data.write(to: imageURL)
+            logger.notice("Saved failed-unlock snapshot to \(imageURL.lastPathComponent, privacy: .public)")
         } catch {
             logger.error("Could not save snapshot: \(error.localizedDescription, privacy: .public)")
+            return
+        }
+
+        let readableStamp = DateFormatter()
+        readableStamp.dateStyle = .medium
+        readableStamp.timeStyle = .medium
+        let description = """
+        Bilakh intruder snapshot
+
+        Taken:  \(readableStamp.string(from: timestamp))
+        Reason: Someone touched the keyboard, trackpad, or mouse while this Mac \
+        was locked by Bilakh, or attempted to unlock it and failed.
+        Image:  \(imageURL.lastPathComponent)
+
+        This photo was captured automatically from the built-in camera. Turn it \
+        off in Bilakh's settings under Lock Screen \u{2192} "Camera on failed unlock".
+        """
+
+        do {
+            try description.write(to: descriptionURL, atomically: true, encoding: .utf8)
+        } catch {
+            logger.error("Could not save snapshot description: \(error.localizedDescription, privacy: .public)")
         }
     }
 
