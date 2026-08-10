@@ -205,6 +205,12 @@ struct SettingsView: View {
                         .disabled(LockSound.resolved(from: selectedLockSound) == .none)
                     }
                 }
+
+                SettingsDivider()
+
+                SettingsRow("Camera on failed unlock", subtitle: "Snap a photo of the attempt and save it to Downloads.") {
+                    SettingsCheckbox(isOn: $cameraOnFailedUnlock)
+                }
             }
 
             SettingsPanel {
@@ -693,16 +699,17 @@ struct SettingsView: View {
             SettingsRow(
                 "Camera",
                 subtitle: cameraGranted
-                    ? "Snap a photo on a failed unlock attempt, saved to Downloads."
+                    ? "Granted"
                     : "Optional — snaps a photo on a failed unlock attempt, saved to Downloads."
             ) {
                 HStack(spacing: 10) {
-                    if cameraGranted {
-                        SettingsCheckbox(isOn: $cameraOnFailedUnlock)
-                    } else {
-                        Label("Optional", systemImage: "camera")
-                            .foregroundStyle(.secondary)
+                    Label(
+                        cameraGranted ? "Granted" : "Optional",
+                        systemImage: cameraGranted ? "checkmark.circle.fill" : "camera"
+                    )
+                    .foregroundStyle(cameraGranted ? Color("BilakhTeal") : .secondary)
 
+                    if !cameraGranted {
                         Button {
                             // Only registers Bilakh in the Camera privacy pane once
                             // this request actually resolves — opening System

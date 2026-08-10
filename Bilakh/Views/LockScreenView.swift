@@ -114,7 +114,7 @@ struct LockScreenView: View {
                                     font: .system(size: compact ? 44 : 76, weight: .heavy, design: .rounded),
                                     fill: .white,
                                     stroke: .black,
-                                    strokeWidth: 4
+                                    strokeWidth: 3
                                 )
                                 .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
                                 .scaleEffect(messagePopped ? 1 : 0.4)
