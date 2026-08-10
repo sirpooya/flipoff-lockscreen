@@ -95,14 +95,27 @@ jobs:
             exit 1
           fi
 
-          SIGN_UPDATE=$(find ~/Library/Developer/Xcode/DerivedData \
-            build/DerivedData/SourcePackages \
-            -name sign_update -type f 2>/dev/null | head -1)
+          # Search only the derivedDataPath this job built into. A `find` over a
+          # nonexistent ~/Library/.../DerivedData exits non-zero and, under
+          # `set -e`, kills the step before the guard below can report anything —
+          # which is exactly how this failed the first time. `|| true` keeps the
+          # guard reachable so a genuine miss produces a readable error.
+          #
+          # -path filters to the prebuilt artifacts/…/bin tool: the same tree also
+          # contains bin/old_dsa_scripts/sign_update, the deprecated DSA signer, and
+          # an unfiltered `head -1` can pick that one and emit a signature Sparkle
+          # will reject against SUPublicEDKey.
+          SIGN_UPDATE=$(find build/DerivedData/SourcePackages/artifacts \
+            -path '*/Sparkle/bin/sign_update' -type f 2>/dev/null | head -1 || true)
 
           if [ -z "${SIGN_UPDATE}" ]; then
-            echo "::error::sign_update tool not found in resolved Sparkle package"
+            echo "::error::sign_update not found under build/DerivedData/SourcePackages."
+            echo "::error::Sparkle's binary tools ship in the package artifacts; check that"
+            echo "::error::the Sparkle dependency resolved during the build step."
+            find build/DerivedData/SourcePackages -maxdepth 3 -type d 2>/dev/null | head -20 || true
             exit 1
           fi
+          echo "Using sign_update at: ${SIGN_UPDATE}"
 
           # --ed-key-file reads the key from disk instead of the (absent) CI keychain,
           # and keeps it out of the process list. printf, not echo, so no trailing
