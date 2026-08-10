@@ -15,7 +15,6 @@ struct LockScreenView: View {
 
     @AppStorage("showMessage") private var showMessage = true
     @AppStorage("lockMessage") private var message = Constants.defaultLockMessage
-    @AppStorage(Mascot.storageKey) private var selectedMascot = Mascot.defaultValue
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.Backdrop.dimKey) private var backdropDim = Constants.Backdrop.defaultDim
@@ -33,8 +32,6 @@ struct LockScreenView: View {
 
     private var breathe: CGFloat { reduceMotion ? 0 : sin((phase + phaseOffset) * .pi * 2 * 0.2) }
     private var drift: CGFloat { reduceMotion ? 0 : sin((phase + phaseOffset) * .pi * 2 * 0.05) }
-    private var mascotAssetName: String { Mascot.resolved(from: selectedMascot).assetName }
-    private var isEmojiMascot: Bool { Mascot.resolved(from: selectedMascot) == .emoji }
     private var resolvedEmoji: String { EmojiMascot.resolved(from: mascotEmoji) }
 
     var body: some View {
@@ -281,24 +278,15 @@ struct LockScreenView: View {
 
     // MARK: - Mascot
 
-    /// Renders the current mascot as either an image (dog/cat) or the emoji glyph,
-    /// both filling the same `mascotSize × mascotSize` frame the caller applies.
-    /// `Text` has no `.scaledToFit()`, so the emoji is sized via `.system(size:)`
-    /// at a large fraction of the frame — GeometryReader would work too but adds a
-    /// layout pass for what is otherwise a plain glyph.
-    @ViewBuilder
+    /// Renders the emoji glyph filling the `mascotSize × mascotSize` frame the
+    /// caller applies. `Text` has no `.scaledToFit()`, so the size is computed via
+    /// `.system(size:)` at a large fraction of the frame — a `GeometryReader`
+    /// picks that up without the caller needing to pass the size down separately.
     private var mascotGlyph: some View {
-        if isEmojiMascot {
-            GeometryReader { proxy in
-                Text(resolvedEmoji)
-                    .font(.system(size: min(proxy.size.width, proxy.size.height) * 0.82))
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-            }
-        } else {
-            Image(mascotAssetName)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
+        GeometryReader { proxy in
+            Text(resolvedEmoji)
+                .font(.system(size: min(proxy.size.width, proxy.size.height) * 0.82))
+                .frame(width: proxy.size.width, height: proxy.size.height)
         }
     }
 

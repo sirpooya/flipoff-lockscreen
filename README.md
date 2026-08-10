@@ -1,8 +1,13 @@
 # Bilakh
 
-Fake screensaver. Locks in-app (not the macOS lock screen) by shielding every
-display with a frozen screenshot of your desktop and a giant 🖕🏻. Unlocks only via
-your chosen hotkey or Touch ID/password — nothing else dismisses it.
+Lock your Mac and walk away — the desktop stays exactly as you left it. Bilakh
+freezes a screenshot of every display in place, so at a glance nothing looks
+locked at all. It is. The moment someone touches the keyboard or trackpad to
+snoop, they get 🖕🏻 full-screen and a fart noise instead of your open tabs.
+
+It's a decoy, not a vault: the goal is to fool a nosy coworker or sibling for the
+ten seconds it takes them to reach for your trackpad, not to stop a real
+attacker. Nothing dismisses it except your own hotkey or Touch ID/password.
 
 Fork of [lockpaw](https://github.com/sorkila/lockpaw) (MIT).
 

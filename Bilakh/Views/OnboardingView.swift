@@ -19,7 +19,6 @@ struct OnboardingView: View {
     @State private var hotkeyConflict: String?
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @AppStorage(Mascot.storageKey) private var selectedMascot = Mascot.defaultValue
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
     @State private var mascotBreath = false
     @State private var pulse: CGFloat = 0
@@ -163,22 +162,11 @@ struct OnboardingView: View {
         }
     }
 
-    /// Renders the current mascot at `size`, either as an image (dog/cat/finger/
-    /// poop) or as the chosen emoji glyph — `Image("")` for the `.emoji` case's
-    /// empty assetName would otherwise render nothing.
-    @ViewBuilder
+    /// Renders the chosen emoji at `size`.
     private func mascotImage(size: CGFloat) -> some View {
-        if Mascot.resolved(from: selectedMascot) == .emoji {
-            Text(EmojiMascot.resolved(from: mascotEmoji))
-                .font(.system(size: size * 0.82))
-                .frame(width: size, height: size)
-        } else {
-            Image(Mascot.resolved(from: selectedMascot).assetName)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: size, height: size)
-        }
+        Text(EmojiMascot.resolved(from: mascotEmoji))
+            .font(.system(size: size * 0.82))
+            .frame(width: size, height: size)
     }
 
     // MARK: - Step 2: Hotkey

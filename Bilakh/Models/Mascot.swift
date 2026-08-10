@@ -1,48 +1,14 @@
 import Foundation
 
-enum Mascot: String, CaseIterable, Identifiable {
-    case emoji
-    case finger
-    case poop
-
-    static let storageKey = "mascot"
-    // The surprise is the whole point of this fork — default straight to it
-    // rather than making the user opt in from the mascot picker.
-    static let defaultValue = emoji.rawValue
-
-    var id: String { rawValue }
-
-    var displayName: String {
-        switch self {
-        case .emoji: return "Emoji"
-        case .finger: return "Finger"
-        case .poop: return "Poop"
-        }
-    }
-
-    /// Only meaningful for the image-backed mascots; `.emoji` is rendered as text
-    /// (see `EmojiMascot.storageKey`), not an asset catalog image.
-    var assetName: String {
-        switch self {
-        case .emoji: return ""
-        case .finger: return "MascotFinger"
-        case .poop: return "MascotPoop"
-        }
-    }
-
-    static func resolved(from rawValue: String) -> Mascot {
-        Mascot(rawValue: rawValue) ?? .emoji
-    }
-}
-
-/// The emoji shown by the `.emoji` mascot — stored separately from `Mascot` so
-/// switching mascots never forgets the user's chosen glyph.
+/// The emoji shown full-screen while locked. An emoji glyph is system-rendered
+/// text, not a bitmap, so it scales to any display size with zero pixelation —
+/// the reason there's no separate image-mascot option here anymore.
 enum EmojiMascot {
     static let storageKey = "mascotEmoji"
     static let defaultValue = "🖕🏻"
 
-    /// A short, curated set for the Settings picker. Any single emoji works via
-    /// the custom-input field; these are just quick picks.
+    /// A short set of quick picks for the Settings row. The full macOS Character
+    /// Viewer (wired up in SettingsView) covers everything else.
     static let suggestions = ["🖕🏻", "🖕🏼", "🖕🏽", "🖕🏾", "🖕🏿", "😈", "💀", "🙄", "😏", "🫵", "👻", "🎃"]
 
     static func resolved(from rawValue: String) -> String {

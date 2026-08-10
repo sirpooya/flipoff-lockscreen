@@ -54,10 +54,10 @@ struct SettingsView: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0=System, 1=Light, 2=Dark
     @AppStorage("multiDisplayMode") private var multiDisplayMode = 0 // 0=Ambient, 1=Mirror
-    @AppStorage(Mascot.storageKey) private var selectedMascot = Mascot.defaultValue
     @AppStorage(LockSound.storageKey) private var selectedLockSound = LockSound.defaultValue
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
     @State private var customEmojiInput = ""
+    @FocusState private var customEmojiFieldFocused: Bool
     @AppStorage("hotkeyDisplay") private var hotkeyDisplay = HotkeyConfig.defaultDisplay
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.agentPingSoundKey) private var agentPingSound = false
@@ -161,18 +161,7 @@ struct SettingsView: View {
             mascotPreview
 
             SettingsPanel {
-                SettingsRow("Mascot") {
-                    SettingsDropdown(
-                        selection: $selectedMascot,
-                        options: Mascot.allCases.map { ($0.displayName, $0.rawValue) },
-                        width: 160
-                    )
-                }
-
-                if Mascot.resolved(from: selectedMascot) == .emoji {
-                    SettingsDivider()
-                    emojiPickerRow
-                }
+                emojiPickerRow
 
                 SettingsDivider()
 
@@ -271,6 +260,7 @@ struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 70)
                     .multilineTextAlignment(.center)
+                    .focused($customEmojiFieldFocused)
                     .onChange(of: customEmojiInput) { _, newValue in
                         // Keep only the last typed character/grapheme so pasted text
                         // or a keyboard combo can't leave multiple glyphs stacked
@@ -280,14 +270,28 @@ struct SettingsView: View {
                         customEmojiInput = single
                         mascotEmoji = single
                     }
+
+                Button {
+                    // The system Character Viewer inserts into whatever text
+                    // field currently has focus — so focus this one first, then
+                    // give SwiftUI a beat to actually hand it first-responder
+                    // status before summoning the panel.
+                    customEmojiInput = ""
+                    customEmojiFieldFocused = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                        NSApp.orderFrontCharacterPalette(nil)
+                    }
+                } label: {
+                    Image(systemName: "face.smiling")
+                }
+                .buttonStyle(.bordered)
+                .help("Pick any emoji from the full macOS picker")
             }
         }
     }
 
     private var mascotPreview: some View {
-        let mascot = Mascot.resolved(from: selectedMascot)
-
-        return HStack(spacing: 18) {
+        HStack(spacing: 18) {
             ZStack {
                 LinearGradient(
                     colors: [
@@ -305,16 +309,8 @@ struct SettingsView: View {
                     endRadius: 120
                 )
 
-                if mascot == .emoji {
-                    Text(EmojiMascot.resolved(from: mascotEmoji))
-                        .font(.system(size: 52))
-                } else {
-                    Image(mascot.assetName)
-                        .resizable()
-                        .interpolation(.high)
-                        .scaledToFit()
-                        .padding(18)
-                }
+                Text(EmojiMascot.resolved(from: mascotEmoji))
+                    .font(.system(size: 52))
             }
             .frame(width: 132, height: 104)
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -324,7 +320,7 @@ struct SettingsView: View {
             )
 
             VStack(alignment: .leading, spacing: 5) {
-                Text("\(mascot.displayName) takeover")
+                Text("Emoji takeover")
                     .font(.system(size: 15, weight: .semibold))
                 Text("Shown on the primary display while Bilakh is active.")
                     .font(.system(size: 14))
