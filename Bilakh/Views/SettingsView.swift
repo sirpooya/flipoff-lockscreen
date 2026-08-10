@@ -53,7 +53,6 @@ struct SettingsView: View {
     @AppStorage("hotkeyEnabled") private var hotkeyEnabled = HotkeyConfig.defaultEnabled
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0=System, 1=Light, 2=Dark
-    @AppStorage("multiDisplayMode") private var multiDisplayMode = 0 // 0=Ambient, 1=Mirror
     @AppStorage(LockSound.storageKey) private var selectedLockSound = LockSound.defaultValue
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
     @State private var customEmojiInput = ""
@@ -165,16 +164,6 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                SettingsRow("Secondary displays", subtitle: "Choose what appears on additional screens.") {
-                    SettingsSegmentedControl(
-                        selection: $multiDisplayMode,
-                        options: [("Ambient", 0), ("Mirror", 1)],
-                        width: 220
-                    )
-                }
-
-                SettingsDivider()
-
                 SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks. Choose None to turn it off.") {
                     HStack(spacing: 10) {
                         SettingsDropdown(
@@ -256,10 +245,12 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
 
-                TextField("Other\u{2026}", text: $customEmojiInput)
-                    .textFieldStyle(.roundedBorder)
-                    .frame(width: 70)
-                    .multilineTextAlignment(.center)
+                // Zero-size text capture — the system Character Viewer inserts
+                // into whatever field has focus, so we give it an invisible one
+                // instead of showing a raw text box next to the emoji swatches.
+                TextField("", text: $customEmojiInput)
+                    .frame(width: 0, height: 0)
+                    .opacity(0)
                     .focused($customEmojiFieldFocused)
                     .onChange(of: customEmojiInput) { _, newValue in
                         // Keep only the last typed character/grapheme so pasted text
@@ -272,19 +263,29 @@ struct SettingsView: View {
                     }
 
                 Button {
-                    // The system Character Viewer inserts into whatever text
-                    // field currently has focus — so focus this one first, then
-                    // give SwiftUI a beat to actually hand it first-responder
-                    // status before summoning the panel.
+                    // Focus the hidden field first, then give SwiftUI a beat to
+                    // actually hand it first-responder status before summoning
+                    // the panel — this is the real macOS emoji & symbols picker.
                     customEmojiInput = ""
                     customEmojiFieldFocused = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
                         NSApp.orderFrontCharacterPalette(nil)
                     }
                 } label: {
-                    Image(systemName: "face.smiling")
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .medium))
+                        .frame(width: 32, height: 32)
+                        .background(
+                            Circle().fill(.white.opacity(EmojiMascot.suggestions.contains(mascotEmoji) ? 0.04 : 0.14))
+                        )
+                        .overlay(
+                            Circle().strokeBorder(
+                                Color("BilakhTeal").opacity(EmojiMascot.suggestions.contains(mascotEmoji) ? 0 : 0.6),
+                                lineWidth: 1.5
+                            )
+                        )
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
                 .help("Pick any emoji from the full macOS picker")
             }
         }

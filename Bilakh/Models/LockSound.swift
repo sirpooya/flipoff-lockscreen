@@ -16,8 +16,8 @@ enum LockSound: String, CaseIterable, Identifiable {
     var displayName: String {
         switch self {
         case .none: return "None"
-        case .normalFart: return "Normal"
-        case .wetFart: return "Wet"
+        case .normalFart: return "Normal Fart"
+        case .wetFart: return "Wet Fart"
         }
     }
 

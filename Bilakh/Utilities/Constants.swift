@@ -4,7 +4,7 @@ enum Constants {
     static let appName = "Bilakh"
     static let bundleIdentifier = "in.pooya.bilakh"
     static let urlScheme = "bilakh"
-    static let defaultLockMessage = "Agents are working. Don't turn me off."
+    static let defaultLockMessage = "I got you little fucker. Now fuck off!"
 
     /// Distributed notification name the `bilakh` CLI posts on `ping`.
     /// DistributedNotificationCenter is used (not the URL scheme) so a background

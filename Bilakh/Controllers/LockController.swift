@@ -183,14 +183,13 @@ class LockController: ObservableObject {
             return
         }
 
-        let mirrorAll = UserDefaults.standard.integer(forKey: "multiDisplayMode") == 1
         guard overlayManager.showOverlay(backdrops: backdrops, contentFactory: { [weak self] index, isPrimary, backdrop in
             guard let self else { return AnyView(Color.black) }
-            if isPrimary || mirrorAll {
+            if isPrimary {
                 return AnyView(LockScreenView(
                     controller: self,
                     screenRole: .primary,
-                    phaseOffset: mirrorAll ? 0 : CGFloat(index) * 0.15,
+                    phaseOffset: CGFloat(index) * 0.15,
                     backdrop: backdrop
                 ))
             } else {

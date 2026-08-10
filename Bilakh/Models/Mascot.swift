@@ -5,11 +5,11 @@ import Foundation
 /// the reason there's no separate image-mascot option here anymore.
 enum EmojiMascot {
     static let storageKey = "mascotEmoji"
-    static let defaultValue = "🖕🏻"
+    static let defaultValue = "🖕"
 
     /// A short set of quick picks for the Settings row. The full macOS Character
     /// Viewer (wired up in SettingsView) covers everything else.
-    static let suggestions = ["🖕🏻", "🖕🏼", "🖕🏽", "🖕🏾", "🖕🏿", "😈", "💀", "🙄", "😏", "🫵", "👻", "🎃"]
+    static let suggestions = ["🖕", "😈", "💀", "🙄", "😏", "👻", "🎃"]
 
     static func resolved(from rawValue: String) -> String {
         rawValue.isEmpty ? defaultValue : rawValue
