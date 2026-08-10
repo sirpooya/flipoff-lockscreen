@@ -33,14 +33,43 @@ enum ScreenCapturer {
         timeout: TimeInterval = Constants.Timing.captureTimeout
     ) async -> [CGDirectDisplayID: CGImage] {
         guard ScreenRecordingChecker.isEnabled else {
-            logger.notice("Screen Recording not granted — locking without backdrop")
-            return [:]
+            logger.notice("Screen Recording not granted — falling back to desktop wallpaper")
+            return await wallpaperBackdrops()
         }
         guard let captured = await withTimeout(timeout, operation: { await capture() }) else {
-            logger.error("Capture exceeded \(timeout, format: .fixed(precision: 1))s — locking without backdrop")
-            return [:]
+            logger.error("Capture exceeded \(timeout, format: .fixed(precision: 1))s — falling back to desktop wallpaper")
+            return await wallpaperBackdrops()
+        }
+        // A partial capture still leaves some screens blank — backfill those from
+        // the wallpaper rather than dropping them to the bare gradient.
+        if captured.isEmpty {
+            return await wallpaperBackdrops()
         }
         return captured
+    }
+
+    /// Backdrops read straight from each screen's desktop picture. Unlike
+    /// ScreenCaptureKit this needs no Screen Recording grant — `desktopImageURL`
+    /// is a plain file URL — so it keeps the lock screen from falling all the way
+    /// back to a flat gradient when the permission is missing or still pending.
+    ///
+    /// It shows the wallpaper rather than the live desktop, so windows and their
+    /// contents are never revealed — which also makes it the safer failure mode.
+    @MainActor
+    private static func wallpaperBackdrops() -> [CGDirectDisplayID: CGImage] {
+        var result: [CGDirectDisplayID: CGImage] = [:]
+        let workspace = NSWorkspace.shared
+
+        for screen in NSScreen.screens {
+            guard let id = screen.displayID,
+                  let url = workspace.desktopImageURL(for: screen),
+                  let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { continue }
+            result[id] = image
+        }
+
+        logger.info("Wallpaper backdrop for \(result.count) of \(NSScreen.screens.count) display(s)")
+        return result
     }
 
     /// Captures only the given displays — used to backfill a screen that was

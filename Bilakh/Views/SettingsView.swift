@@ -67,6 +67,7 @@ struct SettingsView: View {
     @State private var hotkeyConflict: String?
     @State private var keyMonitor: Any?
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
+    @State private var screenRecordingGranted = ScreenRecordingChecker.isEnabled
     @State private var accessibilityTimer: Timer?
     @State private var copiedItem: String?
     @State private var agentSetupResults: [String: AgentSetupResult] = [:]
@@ -655,6 +656,38 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            SettingsDivider()
+
+            // Optional, unlike Accessibility: without it the lock screen falls
+            // back to the desktop wallpaper rather than the live desktop.
+            SettingsRow(
+                "Screen Recording",
+                subtitle: screenRecordingGranted
+                    ? "Granted"
+                    : "Optional — used to freeze your desktop behind the lock screen. Without it, your wallpaper is shown instead."
+            ) {
+                HStack(spacing: 10) {
+                    Label(
+                        screenRecordingGranted ? "Granted" : "Optional",
+                        systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "photo"
+                    )
+                    .foregroundStyle(screenRecordingGranted ? Color("BilakhTeal") : .secondary)
+
+                    if !screenRecordingGranted {
+                        Button {
+                            // Ask first — the system prompt only appears while the
+                            // grant is still undecided; once denied, only Settings works.
+                            ScreenRecordingChecker.requestAccess()
+                            ScreenRecordingChecker.openSystemSettings()
+                        } label: {
+                            Text("Grant Access")
+                                .padding(.horizontal, 8)
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            }
         }
     }
 
@@ -725,6 +758,7 @@ struct SettingsView: View {
 
     private func refreshAccessibilityStatus() {
         accessibilityGranted = AccessibilityChecker.isEnabled
+        screenRecordingGranted = ScreenRecordingChecker.isEnabled
     }
 
     private func startAccessibilityPolling() {

@@ -77,8 +77,9 @@ class Authenticator {
                     localizedReason: reason
                 )
             } catch {
+                let code = (error as NSError).code
                 await MainActor.run {
-                    logger.info("Biometric auto-unlock cancelled or failed: \(error.localizedDescription)")
+                    logger.info("Biometric auto-unlock failed: code=\(code, privacy: .public) \(error.localizedDescription, privacy: .public)")
                 }
                 return false
             }

@@ -106,6 +106,17 @@ class InputBlocker {
                     #endif
                 }
 
+                // Any other swallowed key or click is someone trying to use the
+                // machine — wake the lock screen so it reveals itself.
+                switch type {
+                case .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel:
+                    DispatchQueue.main.async {
+                        NotificationCenter.default.post(name: .bilakhInputAttempt, object: nil)
+                    }
+                default:
+                    break
+                }
+
                 return nil
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()

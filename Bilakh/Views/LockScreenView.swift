@@ -220,12 +220,18 @@ struct LockScreenView: View {
         }
         .environment(\.colorScheme, .dark)
         .onAppear {
+            // Only the backdrop is shown on lock. `appeared`/`mascotPopped` wait
+            // for the first input attempt (see the `revealed` handler below), so
+            // the shield stays bare until someone touches the machine.
+            guard !reduceMotion else { return }
+            withAnimation(Constants.Anim.breathe) { phase = Constants.Anim.breathePhaseTarget }
+        }
+        .onChange(of: controller.revealed) { _, isRevealed in
+            guard isRevealed else { return }
             withAnimation(reduceMotion ? .none : .timingCurve(0.16, 1, 0.3, 1, duration: 0.6)) { appeared = true }
             // Mascot pops in on a spring — scales up from 0.5 while fading in, a
             // beat snappier than the surrounding text so it reads as the subject.
             withAnimation(reduceMotion ? .none : .spring(response: 0.5, dampingFraction: 0.6)) { mascotPopped = true }
-            guard !reduceMotion else { return }
-            withAnimation(Constants.Anim.breathe) { phase = Constants.Anim.breathePhaseTarget }
         }
         .onChange(of: controller.lastError) { _, error in
             guard error != nil else { return }

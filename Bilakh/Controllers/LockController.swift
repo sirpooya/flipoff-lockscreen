@@ -19,6 +19,11 @@ class LockController: ObservableObject {
     /// screen watches this token to trigger a one-shot attention glow.
     @Published private(set) var pingPulse: Int = 0
 
+    /// False until the first blocked input arrives. The shield goes up silent and
+    /// bare — mascot, message and sound all wait for someone to actually touch the
+    /// machine, so locking never announces itself to an empty room.
+    @Published private(set) var revealed = false
+
     /// True from the first agent ping until unlock — after the glow pulses finish,
     /// the lock screen keeps a subtle "your agent needs you" hint from this flag.
     @Published private(set) var agentAttention = false
@@ -33,6 +38,7 @@ class LockController: ObservableObject {
     private var sessionLostObserver: Any?
     private var sessionActiveObserver: Any?
     private var inputBlockerFailedObserver: Any?
+    private var inputAttemptObserver: Any?
     private var accessibilityCheckTimer: Timer?
     private var errorClearTask: Task<Void, Never>?
     private var toggleObserver: Any?
@@ -59,6 +65,14 @@ class LockController: ObservableObject {
                         self.quickUnlock()
                     }
                 }
+            }
+        }
+
+        inputAttemptObserver = NotificationCenter.default.addObserver(
+            forName: .bilakhInputAttempt, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.revealOnFirstInput()
             }
         }
 
@@ -161,7 +175,10 @@ class LockController: ObservableObject {
         }
 
         NSHapticFeedbackManager.defaultPerformer.perform(.levelChange, performanceTime: .now)
-        SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
+        // Mascot and sound deliberately do NOT fire here — locking is silent and
+        // the shield starts bare. Both land on the first blocked input instead
+        // (see `revealOnFirstInput`), so the lock only announces itself to
+        // someone actually trying to use the machine.
         sleepPreventer.preventSleep()
 
         // Photograph the desktop *before* the shield goes up — the overlay sits at
@@ -218,6 +235,7 @@ class LockController: ObservableObject {
         failCount = 0
         lastError = nil
         unlockSucceeded = false
+        revealed = false
         lastAuthFailTime = nil
         errorClearTask?.cancel()
 
@@ -282,6 +300,14 @@ class LockController: ObservableObject {
                 try? await Task.sleep(nanoseconds: 800_000_000)
             }
         }
+    }
+
+    /// First blocked keystroke/click while locked: wake the lock screen up. Plays
+    /// the lock sound and pops the mascot in. Idempotent — later input is ignored.
+    func revealOnFirstInput() {
+        guard state == .locked, !revealed else { return }
+        revealed = true
+        SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
     }
 
     /// Quick unlock via hotkey — no auth.
