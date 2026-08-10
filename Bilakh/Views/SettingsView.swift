@@ -293,46 +293,51 @@ struct SettingsView: View {
     }
 
     private var mascotPreview: some View {
-        HStack(spacing: 18) {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.03, green: 0.035, blue: 0.045),
-                        Color(red: 0.01, green: 0.012, blue: 0.018)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-
-                RadialGradient(
-                    colors: [Color("BilakhTeal").opacity(0.18), .clear],
-                    center: .bottomLeading,
-                    startRadius: 4,
-                    endRadius: 120
-                )
-
-                Text(EmojiMascot.resolved(from: mascotEmoji))
-                    .font(.system(size: 52))
-            }
-            .frame(width: 132, height: 104)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        // Just the lock-screen mockup, centered on a plain gray card — no label,
+        // no caption. The mockup speaks for itself: emoji + message exactly as
+        // they'll appear on the real shield.
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.03, green: 0.035, blue: 0.045),
+                    Color(red: 0.01, green: 0.012, blue: 0.018)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
 
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Emoji takeover")
-                    .font(.system(size: 15, weight: .semibold))
-                Text("Shown on the primary display while Bilakh is active.")
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            RadialGradient(
+                colors: [Color("BilakhTeal").opacity(0.18), .clear],
+                center: .bottomLeading,
+                startRadius: 4,
+                endRadius: 200
+            )
+
+            VStack(spacing: 10) {
+                Text(EmojiMascot.resolved(from: mascotEmoji))
+                    .font(.system(size: 52))
+
+                if showMessage {
+                    Text(message)
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.6)
+                        .padding(.horizontal, 24)
+                }
             }
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 160)
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        )
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .frame(maxWidth: .infinity)
+        .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1)
