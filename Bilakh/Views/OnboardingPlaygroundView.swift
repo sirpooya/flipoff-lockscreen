@@ -20,9 +20,12 @@ final class OnboardingPlaygroundParams {
 
     /// Which of the 5 onboarding pages the stage is showing.
     var step: Int = 0
-    /// Mock stand-in for `AccessibilityChecker.isEnabled` — toggled by hand here,
-    /// never read from the real TCC database.
+    /// Mock stand-ins for `AccessibilityChecker`/`ScreenRecordingChecker`/
+    /// `CameraChecker` .isEnabled — toggled by hand here, never read from the
+    /// real TCC database. Camera is optional and never gates advancing.
     var accessibilityGranted: Bool = false
+    var screenRecordingGranted: Bool = false
+    var cameraGranted: Bool = false
     /// Mirrors `OnboardingView.showRelaunchHint` — normally revealed only after 6s
     /// stuck ungranted; forced on/off instantly here to preview the "stuck" state
     /// users are reporting without waiting.
@@ -35,7 +38,9 @@ final class OnboardingPlaygroundParams {
     var recordedKeyDisplay: String = "⌃⌥⌘L"
     var reduceMotion: Bool = false
 
-    let totalSteps = 5
+    // Mirrors OnboardingView.totalSteps — agent alerts (step 3) is currently
+    // hidden there, so this stays at 4, not 5, to match what ships.
+    let totalSteps = 4
 
     init(loadSaved: Bool = true) {
         if loadSaved, let s = OnboardingPlaygroundSnapshot.load() { apply(s) }
@@ -44,6 +49,8 @@ final class OnboardingPlaygroundParams {
     func apply(_ s: OnboardingPlaygroundSnapshot) {
         step = s.step
         accessibilityGranted = s.accessibilityGranted
+        screenRecordingGranted = s.screenRecordingGranted
+        cameraGranted = s.cameraGranted
         showRelaunchHint = s.showRelaunchHint
         simulateStaleProcessCache = s.simulateStaleProcessCache
     }
@@ -57,8 +64,8 @@ final class OnboardingPlaygroundParams {
 
     /// Autosave watches this; any change persists the tuning session.
     var signature: [Double] {
-        [Double(step), accessibilityGranted ? 1 : 0, showRelaunchHint ? 1 : 0,
-         simulateStaleProcessCache ? 1 : 0]
+        [Double(step), accessibilityGranted ? 1 : 0, screenRecordingGranted ? 1 : 0,
+         cameraGranted ? 1 : 0, showRelaunchHint ? 1 : 0, simulateStaleProcessCache ? 1 : 0]
     }
 
     var swiftSnippet: String {
@@ -66,6 +73,8 @@ final class OnboardingPlaygroundParams {
         // OnboardingPlayground repro state
         step = \(step)
         accessibilityGranted = \(accessibilityGranted)
+        screenRecordingGranted = \(screenRecordingGranted)
+        cameraGranted = \(cameraGranted)
         showRelaunchHint = \(showRelaunchHint)
         simulateStaleProcessCache = \(simulateStaleProcessCache)
         """
@@ -92,6 +101,8 @@ final class OnboardingPlaygroundParams {
 struct OnboardingPlaygroundSnapshot: Codable {
     var step: Int
     var accessibilityGranted: Bool
+    var screenRecordingGranted: Bool
+    var cameraGranted: Bool
     var showRelaunchHint: Bool
     var simulateStaleProcessCache: Bool
 
@@ -99,6 +110,8 @@ struct OnboardingPlaygroundSnapshot: Codable {
     init(_ p: OnboardingPlaygroundParams) {
         step = p.step
         accessibilityGranted = p.accessibilityGranted
+        screenRecordingGranted = p.screenRecordingGranted
+        cameraGranted = p.cameraGranted
         showRelaunchHint = p.showRelaunchHint
         simulateStaleProcessCache = p.simulateStaleProcessCache
     }
@@ -118,6 +131,8 @@ struct OnboardingPlaygroundSnapshot: Codable {
         var snapshot = OnboardingPlaygroundSnapshot(OnboardingPlaygroundParams(loadSaved: false))
         snapshot.step = obj.step ?? 0
         snapshot.accessibilityGranted = obj.accessibilityGranted ?? false
+        snapshot.screenRecordingGranted = obj.screenRecordingGranted ?? false
+        snapshot.cameraGranted = obj.cameraGranted ?? false
         snapshot.showRelaunchHint = obj.showRelaunchHint ?? false
         snapshot.simulateStaleProcessCache = obj.simulateStaleProcessCache ?? false
         return snapshot
@@ -129,6 +144,8 @@ struct OnboardingPlaygroundSnapshot: Codable {
     private struct PartialSnapshot: Codable {
         var step: Int?
         var accessibilityGranted: Bool?
+        var screenRecordingGranted: Bool?
+        var cameraGranted: Bool?
         var showRelaunchHint: Bool?
         var simulateStaleProcessCache: Bool?
     }
@@ -153,9 +170,11 @@ struct OnboardingPlaygroundStage: View {
                 switch params.step {
                 case 0: welcomeStep
                 case 1: hotkeyStep
-                case 2: accessibilityStep
-                case 3: agentAlertsStep
-                case 4: readyStep
+                case 2: permissionsStep
+                // Step "3" in OnboardingView is readyStep — agentAlertsStep is
+                // hidden there for now, kept here only so its preview still works
+                // if you jump to it manually (not reachable via Continue/Back).
+                case 3: readyStep
                 default: EmptyView()
                 }
             }
@@ -168,16 +187,30 @@ struct OnboardingPlaygroundStage: View {
                 HStack(spacing: 8) {
                     ForEach(0..<params.totalSteps, id: \.self) { i in
                         Circle()
-                            .fill(i == params.step ? Color.teal : .gray.opacity(0.3))
+                            .fill(i == params.step ? Color.orange : .gray.opacity(0.3))
                             .frame(width: 6, height: 6)
                     }
                 }
 
-                Text(buttonLabel)
-                    .font(.system(size: 14, weight: .medium))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 6).stroke(.tertiary))
+                // Mirrors OnboardingView: the last step's "Get Started" is
+                // tonal/filled (borderedProminent); every other step's
+                // "Continue" stays outlined.
+                Group {
+                    if params.step == params.totalSteps - 1 {
+                        Text(buttonLabel)
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(.orange))
+                    } else {
+                        Text(buttonLabel)
+                            .font(.system(size: 14, weight: .medium))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                            .background(RoundedRectangle(cornerRadius: 6).stroke(.tertiary))
+                    }
+                }
             }
             .padding(.horizontal, 40)
             .padding(.bottom, 32)
@@ -190,8 +223,8 @@ struct OnboardingPlaygroundStage: View {
 
     private var buttonLabel: String {
         switch params.step {
-        case 2 where !params.accessibilityGranted: return "Waiting for access…"
-        case 4: return "Get Started"
+        case 2 where !allRequiredGranted: return "Waiting for access…"
+        case params.totalSteps - 1: return "Get Started"
         default: return "Continue"
         }
     }
@@ -203,7 +236,7 @@ struct OnboardingPlaygroundStage: View {
             mascotHero(size: 96)
             VStack(spacing: 8) {
                 Text("Welcome to Bilakh").font(.title2.weight(.semibold))
-                Text("Keeps your screen safe\nwhile you step away.")
+                Text("Keeps intruders out\nwhile you step away.")
                     .font(.body).foregroundStyle(.secondary).multilineTextAlignment(.center).lineSpacing(2)
             }
         }
@@ -211,10 +244,10 @@ struct OnboardingPlaygroundStage: View {
 
     private func mascotHero(size: CGFloat) -> some View {
         ZStack {
-            Ellipse().fill(Color.teal.opacity(0.05))
+            Ellipse().fill(Color.orange.opacity(0.05))
                 .frame(width: size * 0.9, height: size * 0.25).blur(radius: 18).offset(y: size * 0.5)
             Text("🖕🏻").font(.system(size: size * 0.82)).frame(width: size, height: size)
-                .shadow(color: .teal.opacity(0.18), radius: 24, y: 8)
+                .shadow(color: .orange.opacity(0.18), radius: 24, y: 8)
                 .scaleEffect(mascotBreath ? 1.03 : 1.0)
                 .offset(y: mascotBreath ? -3 : 0)
         }
@@ -228,81 +261,111 @@ struct OnboardingPlaygroundStage: View {
 
     private var hotkeyStep: some View {
         VStack(spacing: 20) {
-            Image(systemName: "keyboard").font(.system(size: 36, weight: .light)).foregroundStyle(.teal)
+            Image(systemName: "keyboard").font(.system(size: 36, weight: .light)).foregroundStyle(.orange)
             VStack(spacing: 8) {
                 Text("Set your hotkey").font(.title2.weight(.semibold))
                 Text("Press once to lock, press again to unlock.").font(.callout).foregroundStyle(.secondary)
             }
             Text(params.recordedKeyDisplay)
                 .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                .foregroundStyle(.teal)
+                .foregroundStyle(.orange)
                 .padding(.horizontal, 24).padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.teal.opacity(0.08)))
-                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.teal.opacity(0.15), lineWidth: 1))
-            Text("Click to change").font(.caption).foregroundStyle(.secondary)
+                .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.orange.opacity(0.08)))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color.orange.opacity(0.15), lineWidth: 1))
         }
     }
 
     // MARK: Step 2: Accessibility — the step under investigation
 
-    private var accessibilityStep: some View {
+    private var allRequiredGranted: Bool { params.accessibilityGranted && params.screenRecordingGranted }
+
+    private var permissionsStep: some View {
         VStack(spacing: 20) {
             ZStack {
-                if params.accessibilityGranted {
+                if allRequiredGranted {
                     Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 36, weight: .light)).foregroundStyle(.teal)
+                        .font(.system(size: 36, weight: .light)).foregroundStyle(.orange)
                         .transition(.scale.combined(with: .opacity))
                 } else {
-                    Text("✋").font(.system(size: 36)).transition(.scale.combined(with: .opacity))
+                    Image(systemName: "shield.lefthalf.filled")
+                        .font(.system(size: 36, weight: .light)).foregroundStyle(.orange)
+                        .transition(.scale.combined(with: .opacity))
                 }
             }
-            .animation(.easeOut(duration: 0.3), value: params.accessibilityGranted)
+            .animation(.easeOut(duration: 0.3), value: allRequiredGranted)
 
-            VStack(spacing: 8) {
-                Text(params.accessibilityGranted ? "Access granted" : "One more thing")
-                    .font(.title2.weight(.semibold))
-                if params.accessibilityGranted {
-                    Text("Bilakh can now block keyboard input\nwhile your screen is locked.")
-                        .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).lineSpacing(2)
-                } else {
-                    Text("Bilakh needs Accessibility permission to\nblock keyboard input while locked.")
-                        .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).lineSpacing(2)
-                }
-            }
+            Text(allRequiredGranted ? "Access granted" : "Access needed")
+                .font(.title2.weight(.semibold))
 
-            if !params.accessibilityGranted {
-                VStack(spacing: 10) {
-                    Button {
-                        params.simulateGrant()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "gear").font(.system(size: 12))
-                            Text("Open System Settings").font(.system(size: 13, weight: .medium))
-                        }
-                    }
-                    .controlSize(.regular).buttonStyle(.bordered).tint(.teal)
-
-                    VStack(spacing: 4) {
-                        Text("Find Bilakh in the list and toggle it on.").font(.caption).foregroundStyle(.secondary)
-                        Text("This window will update automatically.").font(.caption).foregroundStyle(.secondary)
-                    }
-
-                    if params.showRelaunchHint {
-                        VStack(spacing: 8) {
-                            Text("Already toggled it on? macOS sometimes needs\na relaunch to notice.")
-                                .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                            Button {
-                                params.simulateRelaunch()
-                            } label: {
-                                Text("Relaunch Bilakh").font(.system(size: 13, weight: .medium))
-                            }
-                            .controlSize(.regular).buttonStyle(.bordered)
-                        }
-                        .transition(.opacity)
-                    }
-                }
+            VStack(spacing: 12) {
+                mockPermissionRow(
+                    title: "Accessibility",
+                    detail: "Blocks keyboard input while locked.",
+                    granted: params.accessibilityGranted,
+                    showRelaunchHint: params.showRelaunchHint,
+                    onRequest: { params.simulateGrant() },
+                    onRelaunch: { params.simulateRelaunch() }
+                )
+                mockPermissionRow(
+                    title: "Screen Recording",
+                    detail: "Captures your desktop before the shield goes up.",
+                    granted: params.screenRecordingGranted,
+                    showRelaunchHint: false,
+                    onRequest: { params.screenRecordingGranted = true },
+                    onRelaunch: nil
+                )
+                mockPermissionRow(
+                    title: "Camera",
+                    detail: "Snaps a photo of intruders.",
+                    granted: params.cameraGranted,
+                    showRelaunchHint: false,
+                    optional: true,
+                    onRequest: { params.cameraGranted = true },
+                    onRelaunch: nil
+                )
             }
         }
+    }
+
+    private func mockPermissionRow(
+        title: String, detail: String, granted: Bool, showRelaunchHint: Bool,
+        optional: Bool = false, onRequest: @escaping () -> Void, onRelaunch: (() -> Void)?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(title).font(.system(size: 13, weight: .medium))
+                        if optional {
+                            Text("Optional")
+                                .font(.system(size: 10, weight: .medium)).foregroundStyle(.secondary)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Capsule().fill(.secondary.opacity(0.15)))
+                        }
+                    }
+                    Text(detail).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if granted {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.orange)
+                } else {
+                    Button("Grant", action: onRequest)
+                        .controlSize(.regular).buttonStyle(.bordered).tint(optional ? .secondary : .orange)
+                }
+            }
+            if showRelaunchHint, let onRelaunch {
+                HStack(spacing: 10) {
+                    Text("Still stuck? Try a relaunch.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    Button("Relaunch", action: onRelaunch)
+                        .controlSize(.regular).buttonStyle(.bordered)
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.primary.opacity(0.04)))
     }
 
     // MARK: Step 3: Agent alerts
@@ -313,7 +376,7 @@ struct OnboardingPlaygroundStage: View {
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.black)
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.06), lineWidth: 1))
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .fill(RadialGradient(colors: [Color.teal.opacity(0.55 * pulse), .clear], center: .center, startRadius: 0, endRadius: 95))
+                    .fill(RadialGradient(colors: [Color.orange.opacity(0.55 * pulse), .clear], center: .center, startRadius: 0, endRadius: 95))
                     .blendMode(.plusLighter)
                 Text("🖕🏻").font(.system(size: 46 * 0.82))
             }
@@ -341,8 +404,8 @@ struct OnboardingPlaygroundStage: View {
                     Image(systemName: "wifi").font(.system(size: 11)).foregroundStyle(.secondary)
                     Image(systemName: "battery.75percent").font(.system(size: 13)).foregroundStyle(.secondary)
                     ZStack {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.teal.opacity(0.15)).frame(width: 24, height: 20)
-                        Image(systemName: "pawprint.fill").resizable().scaledToFit().frame(height: 12).foregroundStyle(.teal)
+                        RoundedRectangle(cornerRadius: 4, style: .continuous).fill(Color.orange.opacity(0.15)).frame(width: 24, height: 20)
+                        Image("MenuBarIcon").renderingMode(.template).resizable().scaledToFit().frame(height: 12).foregroundStyle(.orange)
                     }
                     Text("11:21").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
                     Spacer().frame(width: 8)
@@ -353,15 +416,25 @@ struct OnboardingPlaygroundStage: View {
             .frame(width: 220)
             VStack(spacing: 8) {
                 Text("Bilakh lives in your menu bar").font(.title3.weight(.semibold))
-                Text("Look for the dog icon in the top-right\nof your screen. That's your control center.")
+                Text("Click to lock or open Settings.\nUnlock with your hotkey or Touch ID.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).lineSpacing(2)
             }
-            VStack(spacing: 4) {
-                Text("Your hotkey").font(.caption).foregroundStyle(.secondary)
-                Text(params.recordedKeyDisplay)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced)).foregroundStyle(.teal)
-                    .padding(.horizontal, 12).padding(.vertical, 6)
-                    .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.teal.opacity(0.08)))
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(params.recordedKeyDisplay)
+                        .font(.system(size: 14, weight: .regular, design: .monospaced)).foregroundStyle(.orange)
+                        .frame(height: 18)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.orange.opacity(0.08)))
+
+                    Text("or").font(.caption).foregroundStyle(.secondary)
+
+                    Image(systemName: "touchid")
+                        .font(.system(size: 18, weight: .medium)).foregroundStyle(.orange)
+                        .frame(height: 18)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.orange.opacity(0.08)))
+                }
             }
         }
     }
@@ -386,23 +459,24 @@ struct OnboardingPlaygroundView: View {
                     Picker("Page", selection: $params.step) {
                         Text("0 · Welcome").tag(0)
                         Text("1 · Hotkey").tag(1)
-                        Text("2 · Accessibility").tag(2)
-                        Text("3 · Agent alerts").tag(3)
-                        Text("4 · Ready").tag(4)
+                        Text("2 · Permissions").tag(2)
+                        Text("3 · Ready").tag(3)
                     }
                     .pickerStyle(.inline)
                     .labelsHidden()
                 }
 
-                accordion("Accessibility repro") {
+                accordion("Permissions repro") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Toggle("Access granted", isOn: $params.accessibilityGranted)
+                        Toggle("Accessibility granted", isOn: $params.accessibilityGranted)
+                        Toggle("Screen Recording granted", isOn: $params.screenRecordingGranted)
+                        Toggle("Camera granted (optional)", isOn: $params.cameraGranted)
                         Toggle("Show relaunch hint now", isOn: $params.showRelaunchHint)
 
                         Divider()
 
                         Toggle("Simulate stale process cache (the bug)", isOn: $params.simulateStaleProcessCache)
-                        Text("When on, tapping \"Open System Settings\" on the stage grants nothing — mirrors AXIsProcessTrusted() staying stuck for a process's whole lifetime once it's been read as false. Only \"Relaunch Bilakh\" recovers it, same as the real onboarding flow.")
+                        Text("When on, tapping \"Grant\" for Accessibility on the stage grants nothing — mirrors AXIsProcessTrusted() staying stuck for a process's whole lifetime once it's been read as false. Only \"Relaunch Bilakh\" recovers it, same as the real onboarding flow. Screen Recording and Camera aren't affected by this bug.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
 
@@ -410,6 +484,7 @@ struct OnboardingPlaygroundView: View {
                             params.step = 2
                             params.simulateStaleProcessCache = true
                             params.accessibilityGranted = false
+                            params.screenRecordingGranted = true
                             params.showRelaunchHint = true
                         }
                     }

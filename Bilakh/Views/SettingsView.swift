@@ -5,10 +5,11 @@ import Carbon
 
 private let buyMeACoffeeURL = URL(string: "https://buymeacoffee.com/sirpooya")!
 private let repoURL = URL(string: "https://github.com/sirpooya/osx-bilakh-locksceen")!
-/// Settings chrome follows the system accent. The brand teal reads as a light
-/// green on filled controls (checkboxes, chips, tabs), which isn't wanted here —
-/// the teal stays in the lock-screen mockup, where it's the real product look.
-private let settingsAccentColor = Color.accentColor
+/// Settings chrome uses the same orange as onboarding's buttons, not the brand
+/// teal — teal reads as a light green on filled controls (checkboxes, chips,
+/// tabs) and stays reserved for the lock-screen mockup, where it's the real
+/// product look.
+private let settingsAccentColor = Color("BilakhAmber")
 private let mascotGlowColor = Color("BilakhTeal")
 
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
@@ -65,6 +66,7 @@ struct SettingsView: View {
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.agentPingSoundKey) private var agentPingSound = false
     @AppStorage(Constants.cameraOnFailedUnlockKey) private var cameraOnFailedUnlock = Constants.defaultCameraOnFailedUnlock
+    @AppStorage(BackdropMode.storageKey) private var backdropMode = BackdropMode.defaultValue
 
 
     @ObservedObject private var updater = UpdateController.shared
@@ -569,6 +571,16 @@ struct SettingsView: View {
                         applyAppearance(mode)
                     }
                 }
+
+                SettingsDivider()
+
+                SettingsRow("Behind the lock", subtitle: backdropMode.subtitle) {
+                    SettingsSegmentedControl(
+                        selection: $backdropMode,
+                        options: BackdropMode.allCases.map { ($0.title, $0) },
+                        width: 200
+                    )
+                }
             }
 
             SettingsPanel {
@@ -648,7 +660,7 @@ struct SettingsView: View {
                         accessibilityGranted ? "Granted" : "Required",
                         systemImage: accessibilityGranted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
                     )
-                    .foregroundStyle(accessibilityGranted ? settingsAccentColor : Color("BilakhAmber"))
+                    .foregroundStyle(accessibilityGranted ? settingsAccentColor : .yellow)
 
                     if !accessibilityGranted {
                         Button {
@@ -665,12 +677,15 @@ struct SettingsView: View {
             SettingsDivider()
 
             // Optional, unlike Accessibility: without it the lock screen falls
-            // back to the desktop wallpaper rather than the live desktop.
+            // back to the desktop wallpaper rather than the live desktop. In Live
+            // backdrop mode nothing is captured at all, so the grant is moot.
             SettingsRow(
                 "Screen Recording",
-                subtitle: screenRecordingGranted
-                    ? "Granted"
-                    : "Optional — used to freeze your desktop behind the lock screen. Without it, your wallpaper is shown instead."
+                subtitle: backdropMode == .live
+                    ? "Not used — the Live backdrop shows your real desktop instead of a screenshot."
+                    : (screenRecordingGranted
+                        ? "Granted"
+                        : "Optional — used to freeze your desktop behind the lock screen. Without it, your wallpaper is shown instead.")
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -678,8 +693,9 @@ struct SettingsView: View {
                         systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "photo"
                     )
                     .foregroundStyle(screenRecordingGranted ? settingsAccentColor : .secondary)
+                    .opacity(backdropMode == .live ? 0.5 : 1)
 
-                    if !screenRecordingGranted {
+                    if !screenRecordingGranted, backdropMode != .live {
                         Button {
                             // Ask first — the system prompt only appears while the
                             // grant is still undecided; once denied, only Settings works.

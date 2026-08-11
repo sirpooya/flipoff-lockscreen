@@ -14,6 +14,7 @@ struct AmbientScreenView: View {
 
     @AppStorage(Constants.Backdrop.dimKey) private var backdropDim = Constants.Backdrop.defaultDim
     @AppStorage(Constants.Backdrop.blurKey) private var backdropBlur = Constants.Backdrop.defaultBlur
+    @AppStorage(BackdropMode.storageKey) private var backdropMode = BackdropMode.defaultValue
 
     var body: some View {
         GeometryReader { geo in
@@ -24,6 +25,13 @@ struct AmbientScreenView: View {
                         dim: revealed ? backdropDim : 0,
                         blur: revealed ? backdropBlur : 0
                     )
+                } else if backdropMode == .live {
+                    // Transparent — the live desktop on this display shows through.
+                    // Scrim only, matched to the primary so both screens dim together.
+                    Color.black
+                        .opacity(revealed ? backdropDim : 0)
+                        .ignoresSafeArea()
+                        .allowsHitTesting(false)
                 } else {
                     Color.black.ignoresSafeArea()
 

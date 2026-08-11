@@ -19,6 +19,7 @@ struct LockScreenView: View {
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.Backdrop.dimKey) private var backdropDim = Constants.Backdrop.defaultDim
     @AppStorage(Constants.Backdrop.blurKey) private var backdropBlur = Constants.Backdrop.defaultBlur
+    @AppStorage(BackdropMode.storageKey) private var backdropMode = BackdropMode.defaultValue
 
     @State private var phase: CGFloat = 0
     @State private var appeared = false
@@ -330,6 +331,16 @@ struct LockScreenView: View {
                     dim: controller.revealed ? backdropDim : 0,
                     blur: controller.revealed ? backdropBlur : 0
                 )
+            } else if backdropMode == .live {
+                // Nothing to draw — the window is transparent and the live desktop
+                // shows through it. Only the reveal scrim, so the mascot and message
+                // stay legible over whatever happens to be on screen. No blur: there
+                // is no image to blur, and a material here would freeze the motion
+                // that makes this mode worth having.
+                Color.black
+                    .opacity(controller.revealed ? backdropDim : 0)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
             } else {
                 LinearGradient(
                     colors: [Color(red: 0.01, green: 0.005, blue: 0.025), .black, Color(red: 0.01, green: 0.005, blue: 0.02)],

@@ -240,7 +240,12 @@ class OverlayWindowManager {
                 // before the new window for it goes up, or it would just show its
                 // own shield. A display that was merely reconfigured (resolution,
                 // arrangement) already has one and is skipped.
-                let missing = self.displayIDsMissingBackdrop()
+                // Live mode never holds stills, so every display looks "missing" —
+                // capturing here would photograph the shield that's already up and
+                // paste it over the transparent overlay.
+                let missing = BackdropMode.current.needsScreenCapture
+                    ? self.displayIDsMissingBackdrop()
+                    : []
                 if missing.isEmpty {
                     self.createWindows()
                 } else {

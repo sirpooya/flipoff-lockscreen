@@ -7,6 +7,8 @@ struct OnboardingView: View {
     @State private var isRecording = false
     @State private var recordedKeyDisplay = HotkeyConfig.display
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
+    @State private var screenRecordingGranted = ScreenRecordingChecker.isEnabled
+    @State private var cameraGranted = CameraChecker.isEnabled
     @State private var accessibilityTimer: Timer?
     /// Revealed after a few seconds stuck on the Accessibility step. macOS's
     /// accessibility daemon can cache a "not trusted" answer for this process's
@@ -23,7 +25,7 @@ struct OnboardingView: View {
     @State private var mascotBreath = false
     @State private var pulse: CGFloat = 0
 
-    private let totalSteps = 5
+    private let totalSteps = 4
 
     var body: some View {
         VStack(spacing: 0) {
@@ -33,9 +35,11 @@ struct OnboardingView: View {
                 switch step {
                 case 0: welcomeStep
                 case 1: hotkeyStep
-                case 2: accessibilityStep
-                case 3: agentAlertsStep
-                case 4: readyStep
+                case 2: permissionsStep
+                // Step 3 (agentAlertsStep) is hidden for now — see MARK below.
+                // Kept in the file, just skipped in the switch, so it's a one-line
+                // revert to bring back.
+                case 3: readyStep
                 default: EmptyView()
                 }
             }
@@ -52,22 +56,49 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<totalSteps, id: \.self) { i in
                         Circle()
-                            .fill(i == step ? Color("BilakhTeal") : .gray.opacity(0.3))
+                            .fill(i == step ? Color("BilakhAmber") : .gray.opacity(0.3))
                             .frame(width: 6, height: 6)
                     }
                 }
 
-                Button {
-                    advance()
-                } label: {
-                    Text(buttonLabel)
-                        .font(.system(size: 14, weight: .medium))
-                        .frame(maxWidth: .infinity)
+                // The final step's "Get Started" reads as the flow's one
+                // affirmative action, so it gets a tonal treatment — a soft
+                // accent-tinted fill, not a fully saturated `.borderedProminent`
+                // button (SwiftUI has no first-party tonal style on macOS, so
+                // this is a plain button styled by hand). Every other step's
+                // "Continue" stays outlined.
+                Group {
+                    if step == totalSteps - 1 {
+                        Button {
+                            advance()
+                        } label: {
+                            Text(buttonLabel)
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundStyle(Color("BilakhAmber"))
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(Color("BilakhAmber").opacity(0.15))
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .controlSize(.large)
+                        .disabled(!canAdvance)
+                    } else {
+                        Button {
+                            advance()
+                        } label: {
+                            Text(buttonLabel)
+                                .font(.system(size: 14, weight: .medium))
+                                .frame(maxWidth: .infinity)
+                        }
+                        .controlSize(.large)
+                        .buttonStyle(.bordered)
+                        .tint(Color("BilakhAmber"))
+                        .disabled(!canAdvance)
+                    }
                 }
-                .controlSize(.large)
-                .buttonStyle(.bordered)
-                .tint(Color("BilakhTeal"))
-                .disabled(!canAdvance)
             }
             .padding(.horizontal, 40)
             .padding(.bottom, 32)
@@ -75,8 +106,10 @@ struct OnboardingView: View {
         .frame(width: 420, height: 500)
         .onAppear {
             accessibilityGranted = AccessibilityChecker.isEnabled
-            if step == 2 && !accessibilityGranted {
-                startAccessibilityPolling()
+            screenRecordingGranted = ScreenRecordingChecker.isEnabled
+            cameraGranted = CameraChecker.isEnabled
+            if step == 2 && !allRequiredGranted {
+                startPermissionPolling()
             }
         }
         .onDisappear {
@@ -86,14 +119,15 @@ struct OnboardingView: View {
     }
 
     private var canAdvance: Bool {
-        if step == 2 && !accessibilityGranted { return false }
+        // Camera is intentionally excluded — it's optional and never blocks onboarding.
+        if step == 2 && !allRequiredGranted { return false }
         return true
     }
 
     private var buttonLabel: String {
         switch step {
-        case 2 where !accessibilityGranted: return "Waiting for access…"
-        case 4: return "Get Started"
+        case 2 where !allRequiredGranted: return "Waiting for access…"
+        case totalSteps - 1: return "Get Started"
         default: return "Continue"
         }
     }
@@ -102,7 +136,7 @@ struct OnboardingView: View {
         withAnimation(.easeInOut(duration: 0.3)) {
             if step < totalSteps - 1 {
                 step += 1
-                if step == 2 { startAccessibilityPolling() }
+                if step == 2 { startPermissionPolling() }
             } else {
                 UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
                 NotificationCenter.default.post(name: .bilakhHotkeyPreferenceChanged, object: nil)
@@ -124,7 +158,7 @@ struct OnboardingView: View {
                 Text("Welcome to Bilakh")
                     .font(.title2.weight(.semibold))
 
-                Text("Keeps your screen safe\nwhile you step away.")
+                Text("Keeps intruders out\nwhile you step away.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -137,13 +171,13 @@ struct OnboardingView: View {
     private func mascotHero(size: CGFloat) -> some View {
         ZStack {
             Ellipse()
-                .fill(Color("BilakhTeal").opacity(0.05))
+                .fill(Color("BilakhAmber").opacity(0.05))
                 .frame(width: size * 0.9, height: size * 0.25)
                 .blur(radius: 18)
                 .offset(y: size * 0.5)
 
             mascotImage(size: size)
-                .shadow(color: Color("BilakhTeal").opacity(0.18), radius: 24, y: 8)
+                .shadow(color: Color("BilakhAmber").opacity(0.18), radius: 24, y: 8)
                 .scaleEffect(mascotBreath ? 1.03 : 1.0)
                 .offset(y: mascotBreath ? -3 : 0)
         }
@@ -168,7 +202,7 @@ struct OnboardingView: View {
         VStack(spacing: 20) {
             Image(systemName: "keyboard")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(Color("BilakhTeal"))
+                .foregroundStyle(Color("BilakhAmber"))
 
             VStack(spacing: 8) {
                 Text("Set your hotkey")
@@ -187,22 +221,22 @@ struct OnboardingView: View {
                     if isRecording {
                         Text("Press your shortcut…")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Color("BilakhTeal").opacity(0.7))
+                            .foregroundStyle(Color("BilakhAmber").opacity(0.7))
                     } else {
                         Text(recordedKeyDisplay)
                             .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color("BilakhTeal"))
+                            .foregroundStyle(Color("BilakhAmber"))
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color("BilakhTeal").opacity(isRecording ? 0.15 : 0.08))
+                        .fill(Color("BilakhAmber").opacity(isRecording ? 0.15 : 0.08))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color("BilakhTeal").opacity(isRecording ? 0.4 : 0.15), lineWidth: 1)
+                        .strokeBorder(Color("BilakhAmber").opacity(isRecording ? 0.4 : 0.15), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -211,8 +245,8 @@ struct OnboardingView: View {
                 Text(conflict)
                     .font(.caption)
                     .foregroundStyle(Color("BilakhError"))
-            } else {
-                Text(isRecording ? "Press any modifier + key" : "Click to change")
+            } else if isRecording {
+                Text("Press any modifier + key")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -220,93 +254,142 @@ struct OnboardingView: View {
         .onAppear { setupKeyRecorder() }
     }
 
-    // MARK: - Step 3: Accessibility
+    // MARK: - Step 3: Permissions
 
-    private var accessibilityStep: some View {
+    /// Accessibility and Screen Recording are required to advance; Camera is
+    /// optional (used only for the future "look up, get unlocked" gesture) and
+    /// has its own Skip affordance so it never blocks onboarding.
+    private var allRequiredGranted: Bool { accessibilityGranted && screenRecordingGranted }
+
+    private var permissionsStep: some View {
         VStack(spacing: 20) {
             ZStack {
-                if accessibilityGranted {
+                if allRequiredGranted {
                     Image(systemName: "checkmark.shield.fill")
                         .font(.system(size: 36, weight: .light))
-                        .foregroundStyle(Color("BilakhTeal"))
+                        .foregroundStyle(Color("BilakhAmber"))
                         .transition(.scale.combined(with: .opacity))
                 } else {
-                    Text("✋")
-                        .font(.system(size: 36))
+                    Image(systemName: "lock.open.fill")
+                        .font(.system(size: 36, weight: .light))
+                        .foregroundStyle(Color("BilakhAmber"))
                         .transition(.scale.combined(with: .opacity))
                 }
             }
-            .animation(.easeOut(duration: 0.3), value: accessibilityGranted)
+            .animation(.easeOut(duration: 0.3), value: allRequiredGranted)
 
-            VStack(spacing: 8) {
-                Text(accessibilityGranted ? "Access granted" : "One more thing")
-                    .font(.title2.weight(.semibold))
-                    .animation(.none, value: accessibilityGranted)
+            Text(allRequiredGranted ? "Access granted" : "Access needed")
+                .font(.title2.weight(.semibold))
+                .animation(.none, value: allRequiredGranted)
 
-                if accessibilityGranted {
-                    Text("Bilakh can now block keyboard input\nwhile your screen is locked.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
-                } else {
-                    Text("Bilakh needs Accessibility permission to\nblock keyboard input while locked.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(2)
-                }
-            }
-
-            if !accessibilityGranted {
-                VStack(spacing: 10) {
-                    Button {
+            VStack(spacing: 12) {
+                permissionRow(
+                    title: "Accessibility",
+                    detail: "Blocks keyboard input while locked.",
+                    granted: accessibilityGranted,
+                    showRelaunchHint: showRelaunchHint,
+                    onRequest: {
                         AccessibilityChecker.promptIfNeeded()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             AccessibilityChecker.openSystemSettings()
                         }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "gear")
-                                .font(.system(size: 12))
-                            Text("Open System Settings")
-                                .font(.system(size: 13, weight: .medium))
+                    },
+                    onRelaunch: relaunchApp
+                )
+
+                permissionRow(
+                    title: "Screen Recording",
+                    detail: "Captures your desktop before the shield goes up.",
+                    granted: screenRecordingGranted,
+                    showRelaunchHint: false,
+                    onRequest: {
+                        ScreenRecordingChecker.requestAccess()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            ScreenRecordingChecker.openSystemSettings()
                         }
-                    }
-                    .controlSize(.regular)
-                    .buttonStyle(.bordered)
-                    .tint(Color("BilakhTeal"))
+                    },
+                    onRelaunch: nil
+                )
 
-                    VStack(spacing: 4) {
-                        Text("Find Bilakh in the list and toggle it on.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("This window will update automatically.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-
-                    if showRelaunchHint {
-                        VStack(spacing: 8) {
-                            Text("Already toggled it on? macOS sometimes needs\na relaunch to notice.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .multilineTextAlignment(.center)
-
-                            Button {
-                                relaunchApp()
-                            } label: {
-                                Text("Relaunch Bilakh")
-                                    .font(.system(size: 13, weight: .medium))
-                            }
-                            .controlSize(.regular)
-                            .buttonStyle(.bordered)
+                permissionRow(
+                    title: "Camera",
+                    detail: "Snaps a photo of intruders.",
+                    granted: cameraGranted,
+                    showRelaunchHint: false,
+                    optional: true,
+                    onRequest: {
+                        CameraChecker.requestAccess { granted in
+                            cameraGranted = granted
                         }
-                        .transition(.opacity)
-                    }
-                }
+                    },
+                    onRelaunch: nil
+                )
             }
         }
+    }
+
+    /// One row in the permissions list: title, detail, and a trailing
+    /// grant/status control. `optional` permissions never block `canAdvance`
+    /// and get muted styling instead of the teal "required" treatment.
+    private func permissionRow(
+        title: String,
+        detail: String,
+        granted: Bool,
+        showRelaunchHint: Bool,
+        optional: Bool = false,
+        onRequest: @escaping () -> Void,
+        onRelaunch: (() -> Void)?
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(title)
+                            .font(.system(size: 13, weight: .medium))
+                        if optional {
+                            Text("Optional")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(.secondary.opacity(0.15)))
+                        }
+                    }
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if granted {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color("BilakhAmber"))
+                } else {
+                    Button("Grant", action: onRequest)
+                        .controlSize(.regular)
+                        .buttonStyle(.bordered)
+                        .tint(optional ? .secondary : Color("BilakhAmber"))
+                }
+            }
+
+            if showRelaunchHint, let onRelaunch {
+                HStack(spacing: 10) {
+                    Text("Still stuck? Try a relaunch.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Spacer(minLength: 8)
+
+                    Button("Relaunch", action: onRelaunch)
+                        .controlSize(.regular)
+                        .buttonStyle(.bordered)
+                }
+                .transition(.opacity)
+            }
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.primary.opacity(0.04)))
     }
 
     // MARK: - Step 4: Agent alerts
@@ -324,7 +407,7 @@ struct OnboardingView: View {
 
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(RadialGradient(
-                        colors: [Color("BilakhTeal").opacity(0.55 * pulse), .clear],
+                        colors: [Color("BilakhAmber").opacity(0.55 * pulse), .clear],
                         center: .center, startRadius: 0, endRadius: 95))
                     .blendMode(.plusLighter)
 
@@ -376,7 +459,7 @@ struct OnboardingView: View {
                     // Bilakh icon — highlighted
                     ZStack {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(Color("BilakhTeal").opacity(0.15))
+                            .fill(Color("BilakhAmber").opacity(0.15))
                             .frame(width: 24, height: 20)
 
                         Image("MenuBarIcon")
@@ -384,7 +467,7 @@ struct OnboardingView: View {
                             .resizable()
                             .scaledToFit()
                             .frame(height: 12)
-                            .foregroundStyle(Color("BilakhTeal"))
+                            .foregroundStyle(Color("BilakhAmber"))
                     }
 
                     // Clock
@@ -406,28 +489,42 @@ struct OnboardingView: View {
                 Text("Bilakh lives in your menu bar")
                     .font(.title3.weight(.semibold))
 
-                Text("Look for the dog icon in the top-right\nof your screen. That's your control center.")
+                Text("Click to lock or open Settings.\nUnlock with your hotkey or Touch ID.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
             }
 
-            // Hotkey reminder
-            VStack(spacing: 4) {
-                Text("Your hotkey")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            // Unlock reminder — both the hotkey and Touch ID work.
+            VStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(recordedKeyDisplay)
+                        .font(.system(size: 14, weight: .regular, design: .monospaced))
+                        .foregroundStyle(Color("BilakhAmber"))
+                        .frame(height: 18)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color("BilakhAmber").opacity(0.08))
+                        )
 
-                Text(recordedKeyDisplay)
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(Color("BilakhTeal"))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6, style: .continuous)
-                            .fill(Color("BilakhTeal").opacity(0.08))
-                    )
+                    Text("or")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Image(systemName: "touchid")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundStyle(Color("BilakhAmber"))
+                        .frame(height: 18)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Color("BilakhAmber").opacity(0.08))
+                        )
+                }
             }
         }
     }
@@ -480,16 +577,23 @@ struct OnboardingView: View {
 
     // MARK: - Accessibility Polling
 
-    private func startAccessibilityPolling() {
+    /// Polls all three permissions while the user is on the permissions step.
+    /// Screen Recording and Camera grants are visible to a running process as
+    /// soon as they're toggled — only Accessibility's `AXIsProcessTrusted()` can
+    /// get stuck (see the doc comment on `showRelaunchHint`), so only that one
+    /// gets the relaunch-hint timer.
+    private func startPermissionPolling() {
         accessibilityTimer?.invalidate()
         relaunchHintTask?.cancel()
         showRelaunchHint = false
         accessibilityGranted = AccessibilityChecker.isEnabled
+        screenRecordingGranted = ScreenRecordingChecker.isEnabled
 
         let timer = Timer(timeInterval: 0.5, repeats: true) { timer in
             DispatchQueue.main.async {
                 accessibilityGranted = AccessibilityChecker.isEnabled
-                if accessibilityGranted {
+                screenRecordingGranted = ScreenRecordingChecker.isEnabled
+                if allRequiredGranted {
                     timer.invalidate()
                     accessibilityTimer = nil
                     relaunchHintTask?.cancel()

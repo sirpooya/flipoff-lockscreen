@@ -202,6 +202,14 @@ class LockController: ObservableObject {
         // someone actually trying to use the machine.
         sleepPreventer.preventSleep()
 
+        // Live mode has nothing to photograph — the shield stays transparent and the
+        // real desktop shows through it. Straight to the overlay, no capture round
+        // trip and no Screen Recording permission involved.
+        guard BackdropMode.current.needsScreenCapture else {
+            presentOverlay(backdrops: [:])
+            return
+        }
+
         // Photograph the desktop *before* the shield goes up — the overlay sits at
         // CGShieldingWindowLevel, so a capture taken afterwards would show the lock
         // screen instead of the desktop. Bounded internally by captureTimeout so a
