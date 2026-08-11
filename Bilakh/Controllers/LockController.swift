@@ -50,12 +50,14 @@ class LockController: ObservableObject {
     private var accessibilityCheckTimer: Timer?
     private var errorClearTask: Task<Void, Never>?
     private var toggleObserver: Any?
+    private var lockObserver: Any?
+    private var unlockObserver: Any?
+    private var unlockPasswordObserver: Any?
     private var pingObserver: Any?
     private var authenticationInProgress = false
     private var sessionWasLost = false
     private var lastAuthFailTime: Date?
     private var lastPingTime: Date?
-    private var touchIDAutoUnlockTask: Task<Void, Never>?
     private var revealHideTask: Task<Void, Never>?
     private var hasCapturedThisLock = false
 
@@ -75,6 +77,38 @@ class LockController: ObservableObject {
                         self.quickUnlock()
                     }
                 }
+            }
+        }
+
+        // These three used to be handled only by an `.onReceive` inside MenuBarView,
+        // which exists only while the menu-bar popover is actually open. With the
+        // popover closed — i.e. essentially always — Settings' "Lock Now" button and
+        // the whole `bilakh://lock|unlock|unlock-password` URL scheme posted into the
+        // void. They belong on the controller, which lives for the app's lifetime.
+        lockObserver = NotificationCenter.default.addObserver(
+            forName: .bilakhLock, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.state == .unlocked else { return }
+                self.lock()
+            }
+        }
+
+        unlockObserver = NotificationCenter.default.addObserver(
+            forName: .bilakhUnlock, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.state == .locked else { return }
+                self.requestUnlock()
+            }
+        }
+
+        unlockPasswordObserver = NotificationCenter.default.addObserver(
+            forName: .bilakhUnlockPassword, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.state == .locked else { return }
+                self.requestPasswordUnlock()
             }
         }
 
@@ -172,6 +206,9 @@ class LockController: ObservableObject {
 
     deinit {
         if let obs = toggleObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = lockObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = unlockObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = unlockPasswordObserver { NotificationCenter.default.removeObserver(obs) }
         timer?.invalidate()
         accessibilityCheckTimer?.invalidate()
         errorClearTask?.cancel()
@@ -279,55 +316,17 @@ class LockController: ObservableObject {
         startAccessibilityMonitoring()
         sessionWasLost = false
         transitionTo(.locked)
-        startTouchIDAutoUnlockIfNeeded()
     }
 
-    /// Quietly re-arms Touch ID in the background while locked, so resting a
-    /// finger on the sensor unlocks immediately — no hotkey needed. Re-arms
-    /// after every failed/cancelled read until unlocked or the setting is off.
-    ///
-    /// Deliberately does NOT set `authenticationInProgress`: that flag gates
-    /// `quickUnlock()`/`requestUnlock()`, so holding it across a ~30s pending
-    /// biometric read would bolt the hotkey shut and strand the user behind the
-    /// shield. This is a passive listener — it must never block a manual unlock.
-    /// It also uses its own LAContext (`biometricContextOwner: .autoUnlock`) so
-    /// a manual auth can cancel it without the two clobbering each other.
-    private func startTouchIDAutoUnlockIfNeeded() {
-        touchIDAutoUnlockTask?.cancel()
-        // Always armed — a finger on the sensor is unconditionally a valid way
-        // in, independent of the "Require authentication" preference (which only
-        // governs whether the *hotkey* still needs auth). No toggle of its own.
-        //
-        // Macs without a sensor (or with none enrolled) fail the policy check
-        // instantly, which would turn the re-arm loop into a busy spin.
-        guard authenticator.isBiometricsAvailable else { return }
-
-        touchIDAutoUnlockTask = Task { @MainActor [weak self] in
-            while let self, self.state == .locked, !Task.isCancelled {
-                // Stand down while a manual auth owns the sensor, then re-arm.
-                if self.authenticationInProgress {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
-                    continue
-                }
-
-                let authenticated = await self.authenticator.authenticateWithBiometricsOnly()
-
-                guard self.state == .locked, !Task.isCancelled else { return }
-
-                if authenticated {
-                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
-                    self.unlockSucceeded = true
-                    try? await Task.sleep(nanoseconds: Constants.Timing.unlockSuccessAnimNs)
-                    guard !Task.isCancelled else { return }
-                    self.unlock()
-                    return
-                }
-
-                // Brief pause before re-arming so a failed/cancelled read doesn't spin hot.
-                try? await Task.sleep(nanoseconds: 800_000_000)
-            }
-        }
-    }
+    // NOTE: there is deliberately no "passive Touch ID listener" here any more.
+    // The idea was to arm Touch ID on lock so resting a finger unlocked without
+    // the hotkey — but `LAContext.evaluatePolicy` ALWAYS presents a system sheet,
+    // and LocalAuthentication offers no way to wait for a finger silently. So the
+    // shield came up with a Touch ID modal on top of it, which broke the whole
+    // premise of this app (locking is silent; nothing announces itself until
+    // someone touches the machine) and handed an intruder a visible dialog to
+    // poke at. Touch ID is still available on demand: the hotkey path
+    // (`requestUnlock`) and the menu bar's "Unlock with Touch ID".
 
     /// A blocked keystroke/click while locked: wake the lock screen up. Plays the
     /// lock sound and pops the mascot in, then hides itself again after a few
@@ -538,8 +537,6 @@ class LockController: ObservableObject {
     }
 
     private func unlock() {
-        touchIDAutoUnlockTask?.cancel()
-        touchIDAutoUnlockTask = nil
         revealHideTask?.cancel()
         revealHideTask = nil
         authenticator.cancelAll()
@@ -556,8 +553,6 @@ class LockController: ObservableObject {
     }
 
     private func forceUnlock() {
-        touchIDAutoUnlockTask?.cancel()
-        touchIDAutoUnlockTask = nil
         revealHideTask?.cancel()
         revealHideTask = nil
         authenticationInProgress = false

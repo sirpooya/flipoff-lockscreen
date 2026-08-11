@@ -162,6 +162,19 @@ frame (Text has no scale-to-fit).
 
 ## Gotchas
 
+- **Never call `LAContext.evaluatePolicy` on lock.** It *always* presents a system
+  sheet — LocalAuthentication has no API for silently waiting on the Touch ID
+  sensor. A "passive Touch ID listener" armed at lock time (removed in 1.2.4)
+  therefore put a modal on top of the shield the instant you locked: it announced
+  the lock, contradicting the silent-shield design, and gave an intruder a dialog to
+  interact with. Touch ID belongs only on explicit request — `requestUnlock()` from
+  the hotkey, or the menu bar's "Unlock with Touch ID".
+- **App-wide notifications must be observed by `LockController`, never by a view.**
+  `.bilakhLock` / `.bilakhUnlock` / `.bilakhUnlockPassword` were once handled by
+  `.onReceive` in `MenuBarView` — but a `MenuBarExtra`'s content view only exists
+  while the popover is open, so with the menu closed Settings' "Lock Now" button and
+  the entire `bilakh://` URL scheme posted into the void with no error anywhere.
+  `LockController` lives for the app's lifetime; that's where these belong.
 - **`xcodegen generate` must be re-run after any `project.yml` edit** — the
   `.xcodeproj` is generated, not committed (`.gitignore`'d). `xcodebuild` against
   a stale `.xcodeproj` silently ignores your change.

@@ -4,7 +4,6 @@ struct MenuBarView: View {
     @ObservedObject var controller: LockController
     @ObservedObject private var updater = UpdateController.shared
     #if DEBUG
-    @Environment(\.openWindow) private var openWindow
     #endif
 
     var body: some View {
@@ -58,31 +57,14 @@ struct MenuBarView: View {
                 .disabled(!updater.canCheckForUpdates)
             }
 
-            #if DEBUG
-            Button("Onboarding Playground\u{2026}") {
-                openWindow(id: "onboarding-playground")
-            }
-            #endif
-
             Button("Quit Bilakh") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
         }
-        .onReceive(NotificationCenter.default.publisher(for: .bilakhLock)) { _ in
-            if controller.state == .unlocked {
-                controller.lock()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .bilakhUnlock)) { _ in
-            if controller.state == .locked {
-                controller.requestUnlock()
-            }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .bilakhUnlockPassword)) { _ in
-            if controller.state == .locked {
-                controller.requestPasswordUnlock()
-            }
-        }
+        // .bilakhLock / .bilakhUnlock / .bilakhUnlockPassword are observed by
+        // LockController, not here — a menu-bar popover only exists while it's open,
+        // so handling them in this view meant Settings' "Lock Now" and the URL
+        // scheme silently did nothing whenever the menu was closed.
     }
 }
