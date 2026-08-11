@@ -39,6 +39,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var lastURLSchemeCall: Date = .distantPast
     private var onboardingWindow: NSWindow?
     private var pingDistributedObserver: Any?
+    private var showOnboardingObserver: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Instantiate AgentNotifier now so it registers as the notification-center
@@ -104,6 +105,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.post(name: .bilakhPing, object: nil)
         }
 
+        showOnboardingObserver = NotificationCenter.default.addObserver(
+            forName: .bilakhShowOnboarding, object: nil, queue: .main
+        ) { [weak self] notification in
+            self?.showOnboarding(startingAt: notification.object as? Int ?? 0)
+        }
+
         if !UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
             showOnboarding()
         } else if !AccessibilityChecker.isEnabled {
@@ -126,17 +133,28 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func showOnboarding() {
-        let view = OnboardingView(hasCompletedOnboarding: Binding(
-            get: { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") },
-            set: { newValue in
-                UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding")
-                if newValue {
-                    self.onboardingWindow?.close()
-                    self.onboardingWindow = nil
+    /// - Parameter step: which step to open on. The real first run always passes 0;
+    ///   anything else comes from the Debug menu, which exists so a step can be
+    ///   looked at without wiping `hasCompletedOnboarding` and restarting.
+    private func showOnboarding(startingAt step: Int = 0) {
+        // Reopening replaces any window already up, otherwise picking a second
+        // step from the menu would silently do nothing.
+        onboardingWindow?.close()
+        onboardingWindow = nil
+
+        let view = OnboardingView(
+            hasCompletedOnboarding: Binding(
+                get: { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") },
+                set: { newValue in
+                    UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding")
+                    if newValue {
+                        self.onboardingWindow?.close()
+                        self.onboardingWindow = nil
+                    }
                 }
-            }
-        ))
+            ),
+            startingAt: step
+        )
 
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 440, height: 540),
@@ -180,6 +198,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "unlock": NotificationCenter.default.post(name: .bilakhUnlock, object: nil)
             case "unlock-password": NotificationCenter.default.post(name: .bilakhUnlockPassword, object: nil)
             case "toggle": NotificationCenter.default.post(name: .toggleBilakh, object: nil)
+            #if DEBUG
+            // `bilakh://onboarding?step=3` — the scriptable twin of the Debug
+            // menu's Preview Onboarding, for checking a step from a shell.
+            case "onboarding":
+                let step = URLComponents(url: url, resolvingAgainstBaseURL: false)?
+                    .queryItems?.first { $0.name == "step" }?.value
+                NotificationCenter.default.post(
+                    name: .bilakhShowOnboarding, object: Int(step ?? "") ?? 0
+                )
+            #endif
             default: logger.warning("Unknown URL scheme: \(url.host ?? "nil")")
             }
         }
@@ -188,5 +216,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     deinit {
         if let obs = hotkeyObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = pingDistributedObserver { DistributedNotificationCenter.default().removeObserver(obs) }
+        if let obs = showOnboardingObserver { NotificationCenter.default.removeObserver(obs) }
     }
 }

@@ -15,4 +15,9 @@ extension Notification.Name {
     static let bilakhHotkeyPreferenceChanged = Notification.Name("bilakhHotkeyPreferenceChanged")
     /// Posted when an AI agent pings (bridged from the distributed notification, or fired by the in-app test button).
     static let bilakhPing = Notification.Name("bilakhPing")
+    /// Reopens the onboarding window, optionally on a given step (`object` is the
+    /// step index as an `Int`). Observed by `AppDelegate`, which owns that window —
+    /// the menu-bar item that posts this only exists while the menu is open, so a
+    /// view could never observe it in time.
+    static let bilakhShowOnboarding = Notification.Name("bilakhShowOnboarding")
 }

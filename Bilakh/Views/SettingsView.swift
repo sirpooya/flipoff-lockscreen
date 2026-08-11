@@ -215,9 +215,7 @@ struct SettingsView: View {
 
                 SettingsRow(
                     "Camera on failed unlock",
-                    subtitle: cameraGranted
-                        ? "Snap a photo of the attempt and save it to Downloads."
-                        : "Snap a photo of the attempt and save it to Downloads. Grant Camera access in Permissions first."
+                    subtitle: "Saves a photo of the attempt to Downloads."
                 ) {
                     Toggle("", isOn: $cameraOnFailedUnlock)
                         .labelsHidden()
@@ -1121,11 +1119,12 @@ private struct SettingsSwitch: View {
 private struct SettingsDivider: View {
     var body: some View {
         // A plain 1px rectangle, not `Divider()` — the system separator draws
-        // full-bleed and runs past the card's rounded edge instead of stopping
-        // at its padding.
+        // full-bleed and runs past the card's rounded edge. No horizontal
+        // padding of its own: `SettingsPanel` already insets everything it
+        // contains by 12pt, so adding padding here double-inset the divider
+        // relative to the row text directly above/below it.
         Rectangle()
             .fill(Color.primary.opacity(0.08))
             .frame(height: 1)
-            .padding(.horizontal, 12)
     }
 }

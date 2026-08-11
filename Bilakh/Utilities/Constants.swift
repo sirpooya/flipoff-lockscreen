@@ -4,7 +4,7 @@ enum Constants {
     static let appName = "Bilakh"
     static let bundleIdentifier = "in.pooya.bilakh"
     static let urlScheme = "bilakh"
-    static let defaultLockMessage = "I got you little fucker. Now fuck off!"
+    static let defaultLockMessage = "Nice try. Now back off."
 
     /// Distributed notification name the `bilakh` CLI posts on `ping`.
     /// DistributedNotificationCenter is used (not the URL scheme) so a background
@@ -42,7 +42,7 @@ enum Constants {
         static let pingPulsePeriod: TimeInterval = 2.2                // seconds per full breath (rise + fall)
         static let pingPulseFloor: CGFloat = 0.30                     // glow level between breaths (never fully dark mid-pulse)
         static let pingGlowRest: CGFloat = 0.08                       // faint glow held after the breaths until unlock — paired with the "agent needs you" hint
-        static let cursorIdleHide: TimeInterval = 3.0                 // seconds of stillness before the pointer hides again while locked
+        static let cursorIdleHide: TimeInterval = 1.5                 // seconds of stillness before the pointer hides again while locked
         static let agentSetupMinSpin: TimeInterval = 1.2              // seconds; floor on the Settings connect-spinner so success registers
         static let captureTimeout: TimeInterval = 2.0                 // seconds; ceiling on the pre-lock screenshot so a hung capture can't strand the .locking state
     }

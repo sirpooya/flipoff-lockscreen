@@ -3,21 +3,13 @@ import Carbon
 
 struct OnboardingView: View {
     @Binding var hasCompletedOnboarding: Bool
-    @State private var step = 0
+    @State private var step: Int
     @State private var isRecording = false
     @State private var recordedKeyDisplay = HotkeyConfig.display
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
     @State private var screenRecordingGranted = ScreenRecordingChecker.isEnabled
     @State private var cameraGranted = CameraChecker.isEnabled
     @State private var accessibilityTimer: Timer?
-    /// Revealed after a few seconds stuck on the Accessibility step. macOS's
-    /// accessibility daemon can cache a "not trusted" answer for this process's
-    /// entire remaining lifetime once it's been checked before the user grants
-    /// access — polling AXIsProcessTrusted() again never picks up the change; only
-    /// a fresh process does. A relaunch button is the standard workaround (see
-    /// Rectangle, Karabiner-Elements, BetterTouchTool for the same pattern).
-    @State private var showRelaunchHint = false
-    @State private var relaunchHintTask: Task<Void, Never>?
     @State private var hotkeyConflict: String?
     @Environment(\.openSettings) private var openSettings
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -26,6 +18,14 @@ struct OnboardingView: View {
     @State private var pulse: CGFloat = 0
 
     private let totalSteps = 4
+
+    /// `startingAt` exists so previews (and any future debug entry point) can open
+    /// the flow on a single step instead of clicking through it. The app never
+    /// passes it — onboarding always begins at the welcome step.
+    init(hasCompletedOnboarding: Binding<Bool>, startingAt step: Int = 0) {
+        self._hasCompletedOnboarding = hasCompletedOnboarding
+        self._step = State(initialValue: step)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -114,7 +114,6 @@ struct OnboardingView: View {
         }
         .onDisappear {
             accessibilityTimer?.invalidate()
-            relaunchHintTask?.cancel()
         }
     }
 
@@ -289,43 +288,37 @@ struct OnboardingView: View {
                     title: "Accessibility",
                     detail: "Blocks keyboard input while locked.",
                     granted: accessibilityGranted,
-                    showRelaunchHint: showRelaunchHint,
                     onRequest: {
                         AccessibilityChecker.promptIfNeeded()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             AccessibilityChecker.openSystemSettings()
                         }
-                    },
-                    onRelaunch: relaunchApp
+                    }
                 )
 
                 permissionRow(
                     title: "Screen Recording",
                     detail: "Only for the Frozen backdrop.",
                     granted: screenRecordingGranted,
-                    showRelaunchHint: false,
                     optional: true,
                     onRequest: {
                         ScreenRecordingChecker.requestAccess()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             ScreenRecordingChecker.openSystemSettings()
                         }
-                    },
-                    onRelaunch: nil
+                    }
                 )
 
                 permissionRow(
                     title: "Camera",
                     detail: "Snaps a photo of intruders.",
                     granted: cameraGranted,
-                    showRelaunchHint: false,
                     optional: true,
                     onRequest: {
                         CameraChecker.requestAccess { granted in
                             cameraGranted = granted
                         }
-                    },
-                    onRelaunch: nil
+                    }
                 )
             }
         }
@@ -338,10 +331,8 @@ struct OnboardingView: View {
         title: String,
         detail: String,
         granted: Bool,
-        showRelaunchHint: Bool,
         optional: Bool = false,
-        onRequest: @escaping () -> Void,
-        onRelaunch: (() -> Void)?
+        onRequest: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
@@ -374,21 +365,6 @@ struct OnboardingView: View {
                         .buttonStyle(.bordered)
                         .tint(optional ? .secondary : Color("BilakhAmber"))
                 }
-            }
-
-            if showRelaunchHint, let onRelaunch {
-                HStack(spacing: 10) {
-                    Text("Still stuck? Try a relaunch.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Spacer(minLength: 8)
-
-                    Button("Relaunch", action: onRelaunch)
-                        .controlSize(.regular)
-                        .buttonStyle(.bordered)
-                }
-                .transition(.opacity)
             }
         }
         .padding(14)
@@ -444,49 +420,15 @@ struct OnboardingView: View {
     // MARK: - Step 5: Ready
 
     private var readyStep: some View {
-        VStack(spacing: 20) {
-            // Menu bar illustration
-            VStack(spacing: 0) {
-                // Fake menu bar
-                HStack(spacing: 12) {
-                    Spacer()
-
-                    // Other menu bar icons (generic)
-                    Image(systemName: "wifi")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Image(systemName: "battery.75percent")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-
-                    // Bilakh icon — highlighted
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 4, style: .continuous)
-                            .fill(Color("BilakhAmber").opacity(0.15))
-                            .frame(width: 24, height: 20)
-
-                        Image("MenuBarIcon")
-                            .renderingMode(.template)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(height: 12)
-                            .foregroundStyle(Color("BilakhAmber"))
-                    }
-
-                    // Clock
-                    Text("11:21")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-
-                    Spacer().frame(width: 8)
-                }
-                .frame(height: 28)
-                .background(
-                    RoundedRectangle(cornerRadius: 6, style: .continuous)
-                        .fill(.primary.opacity(0.06))
-                )
-            }
-            .frame(width: 220)
+        VStack(spacing: 18) {
+            // The whole lock/unlock loop, acted out on a miniature desktop —
+            // click the menu-bar icon, pick Lock Screen, unlock by chord or by
+            // sensor. It carries the unlock hints itself, so the static chip row
+            // below only appears when motion is off.
+            OnboardingLockDemo(
+                emoji: EmojiMascot.resolved(from: mascotEmoji),
+                hotkeyDisplay: recordedKeyDisplay
+            )
 
             VStack(spacing: 8) {
                 Text("Bilakh lives in your menu bar")
@@ -499,8 +441,10 @@ struct OnboardingView: View {
                     .lineSpacing(2)
             }
 
-            // Unlock reminder — both the hotkey and Touch ID work.
-            VStack(spacing: 6) {
+            // Unlock reminder — both the hotkey and Touch ID work. The animation
+            // demonstrates both when it's allowed to run; this is the reduced-motion
+            // stand-in for that beat, so the information is never lost.
+            if reduceMotion {
                 HStack(spacing: 8) {
                     Text(recordedKeyDisplay)
                         .font(.system(size: 14, weight: .light, design: .monospaced))
@@ -583,13 +527,11 @@ struct OnboardingView: View {
 
     /// Polls all three permissions while the user is on the permissions step.
     /// Screen Recording and Camera grants are visible to a running process as
-    /// soon as they're toggled — only Accessibility's `AXIsProcessTrusted()` can
-    /// get stuck (see the doc comment on `showRelaunchHint`), so only that one
-    /// gets the relaunch-hint timer.
+    /// soon as they're toggled; Accessibility's `AXIsProcessTrusted()` can lag
+    /// or get stuck after a grant, but the poll alone still catches it once
+    /// macOS's cached answer catches up — there's no relaunch escape hatch here.
     private func startPermissionPolling() {
         accessibilityTimer?.invalidate()
-        relaunchHintTask?.cancel()
-        showRelaunchHint = false
         accessibilityGranted = AccessibilityChecker.isEnabled
         screenRecordingGranted = ScreenRecordingChecker.isEnabled
 
@@ -600,33 +542,10 @@ struct OnboardingView: View {
                 if allRequiredGranted {
                     timer.invalidate()
                     accessibilityTimer = nil
-                    relaunchHintTask?.cancel()
                 }
             }
         }
         accessibilityTimer = timer
         RunLoop.main.add(timer, forMode: .common)
-
-        // If still ungranted after a few seconds, the toggle in System Settings
-        // most likely already succeeded — this process's accessibilityd answer is
-        // just stuck. Offer a one-click relaunch instead of leaving the user to
-        // discover on their own that quitting and reopening is what's needed.
-        relaunchHintTask = Task {
-            try? await Task.sleep(nanoseconds: 6_000_000_000)
-            guard !Task.isCancelled, !accessibilityGranted else { return }
-            withAnimation(.easeIn(duration: 0.3)) { showRelaunchHint = true }
-        }
-    }
-
-    /// Quits and reopens Bilakh from its own bundle — a fresh process gets a fresh
-    /// accessibilityd answer, picking up a grant that already happened in System
-    /// Settings but that this process's cached check can no longer see.
-    private func relaunchApp() {
-        let path = Bundle.main.bundlePath
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = [path]
-        try? task.run()
-        NSApp.terminate(nil)
     }
 }

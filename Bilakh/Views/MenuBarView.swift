@@ -57,6 +57,17 @@ struct MenuBarView: View {
                 .disabled(!updater.canCheckForUpdates)
             }
 
+            // Debug-only: opens onboarding straight on its last step — the one with
+            // the lock demo animation — without wiping `hasCompletedOnboarding` and
+            // relaunching to click through the flow.
+            #if DEBUG
+            if controller.state == .unlocked {
+                Button("Preview Onboarding") {
+                    NotificationCenter.default.post(name: .bilakhShowOnboarding, object: 3)
+                }
+            }
+            #endif
+
             Button("Quit Bilakh") {
                 NSApplication.shared.terminate(nil)
             }
@@ -67,4 +78,5 @@ struct MenuBarView: View {
         // so handling them in this view meant Settings' "Lock Now" and the URL
         // scheme silently did nothing whenever the menu was closed.
     }
+
 }
