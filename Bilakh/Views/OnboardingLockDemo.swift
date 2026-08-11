@@ -40,7 +40,7 @@ struct OnboardingLockDemo: View {
     @State private var ringA: CGFloat = 0
     @State private var ringB: CGFloat = 0
     @State private var touchPress = false
-    @State private var wallpaper: NSImage?
+    @State private var wallpaper: CGImage?
     /// The mascot's visibility is its own state, not a function of `phase`: it has
     /// to pop *after* the wrong key press lands, partway through `.intrusion`.
     @State private var revealed = false
@@ -155,8 +155,15 @@ struct OnboardingLockDemo: View {
         )
         .shadow(color: .black.opacity(0.16), radius: 14, y: 6)
         .onAppear(perform: start)
+        // The URL lookup has to happen here — `NSScreen.main` is main-actor state —
+        // and only the decode is worth handing off.
         .task {
-            let image = await Task.detached(priority: .userInitiated) { Self.loadWallpaper() }.value
+            guard let screen = NSScreen.main,
+                  let url = NSWorkspace.shared.desktopImageURL(for: screen)
+            else { return }
+            let image = await Task.detached(priority: .userInitiated) {
+                Self.decodeThumbnail(at: url)
+            }.value
             withAnimation(.easeOut(duration: 0.35)) { wallpaper = image }
         }
         .onDisappear {
@@ -180,7 +187,7 @@ struct OnboardingLockDemo: View {
     private var desktop: some View {
         Group {
             if let wallpaper {
-                Image(nsImage: wallpaper)
+                Image(decorative: wallpaper, scale: 1)
                     .resizable()
                     .scaledToFill()
             } else {
@@ -199,25 +206,23 @@ struct OnboardingLockDemo: View {
         .blur(radius: locked ? 3 : 0)
     }
 
-    /// Reads the desktop picture off disk at thumbnail size — a 6K wallpaper
-    /// decoded whole for a 336pt view would cost tens of megabytes of resident
-    /// image for no visible gain. Off the main actor because this touches the
-    /// filesystem.
-    private static func loadWallpaper() -> NSImage? {
-        guard let screen = NSScreen.main,
-              let url = NSWorkspace.shared.desktopImageURL(for: screen),
-              let source = CGImageSourceCreateWithURL(url as CFURL, nil)
-        else { return nil }
+    /// Decodes the desktop picture at thumbnail size — a 6K wallpaper decoded whole
+    /// for a 336pt view would cost tens of megabytes of resident image for no
+    /// visible gain.
+    ///
+    /// `nonisolated` is what actually gets this off the main thread: a `View` is
+    /// main-actor isolated, so an ordinary static method here hops straight back
+    /// to the main actor no matter what `Task.detached` wraps it in (and Swift 6
+    /// rejects the call outright).
+    private nonisolated static func decodeThumbnail(at url: URL) -> CGImage? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
 
         let options: [CFString: Any] = [
             kCGImageSourceCreateThumbnailFromImageAlways: true,
             kCGImageSourceCreateThumbnailWithTransform: true,
             kCGImageSourceThumbnailMaxPixelSize: 900,
         ]
-        guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
-        else { return nil }
-
-        return NSImage(cgImage: image, size: NSSize(width: image.width, height: image.height))
+        return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
     }
 
     private var menuBar: some View {
