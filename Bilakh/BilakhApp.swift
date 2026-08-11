@@ -199,8 +199,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             case "unlock-password": NotificationCenter.default.post(name: .bilakhUnlockPassword, object: nil)
             case "toggle": NotificationCenter.default.post(name: .toggleBilakh, object: nil)
             #if DEBUG
-            // `bilakh://onboarding?step=3` — the scriptable twin of the Debug
-            // menu's Preview Onboarding, for checking a step from a shell.
+            // `bilakh://onboarding?step=3` — reopens the welcome flow on one step
+            // (3 being the lock demo) without wiping `hasCompletedOnboarding` and
+            // relaunching. Debug builds only; nothing in the UI exposes it.
             case "onboarding":
                 let step = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                     .queryItems?.first { $0.name == "step" }?.value

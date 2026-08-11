@@ -582,9 +582,9 @@ struct OnboardingLockDemo: View {
     }
 }
 
-// The everyday way to look at this is the Debug menu's "Preview Onboarding" item,
-// which opens the real window on the real step. This canvas is just here for
-// tuning timings without a rebuild.
+// To see this in the real window, a Debug build answers
+// `open "bilakh://onboarding?step=3"`. This canvas is for tuning timings without
+// a rebuild.
 #Preview("Lock demo") {
     OnboardingLockDemo(emoji: "🖕🏻", hotkeyDisplay: "Cmd+Shift+L")
         .padding(40)
