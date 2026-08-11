@@ -301,7 +301,7 @@ struct OnboardingView: View {
 
                 permissionRow(
                     title: "Screen Recording",
-                    detail: "Only if you want the desktop frozen behind the lock instead of live.",
+                    detail: "Only for the Frozen backdrop.",
                     granted: screenRecordingGranted,
                     showRelaunchHint: false,
                     optional: true,

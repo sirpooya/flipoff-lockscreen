@@ -683,9 +683,8 @@ struct SettingsView: View {
             // shown here always matches System Settings.
             SettingsRow(
                 "Screen Recording",
-                subtitle: screenRecordingGranted
-                    ? nil
-                    : "Optional — only needed for the Frozen backdrop, which freezes your desktop behind the lock screen."
+                // No "Optional —" prefix: the chip on the right already says it.
+                subtitle: screenRecordingGranted ? nil : "Only for the Frozen backdrop."
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -715,9 +714,7 @@ struct SettingsView: View {
             // camera snapshot — everything else about the lock screen still works.
             SettingsRow(
                 "Camera",
-                subtitle: cameraGranted
-                    ? nil
-                    : "Optional — snaps a photo on a failed unlock attempt, saved to Downloads."
+                subtitle: cameraGranted ? nil : "Photo of a failed unlock, saved to Downloads."
             ) {
                 HStack(spacing: 10) {
                     Label(

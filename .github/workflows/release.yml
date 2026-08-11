@@ -110,6 +110,19 @@ jobs:
           set -euo pipefail
           APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
 
+          # NO `--options runtime` anywhere here. Hardened runtime turns on Library
+          # Validation, which requires every loaded library to share the main
+          # binary's Team ID — and ad-hoc signatures have no Team ID at all. The app
+          # then dies at launch before any code runs:
+          #   Library not loaded: @rpath/Sparkle.framework/Versions/B/Sparkle
+          #   … mapping process and mapped file (non-platform) have different Team IDs
+          # v1.2.1 and v1.2.2 both shipped that way and could not start. Locally this
+          # never reproduces: Xcode signs app *and* Sparkle with the same real Team
+          # ID, so validation passes and hardened runtime is fine there (project.yml
+          # keeps ENABLE_HARDENED_RUNTIME: YES for exactly that path). Hardened
+          # runtime buys nothing here anyway — it's a notarization requirement, and
+          # these builds are not notarized.
+          #
           # Inside-out, deepest first: Sparkle ships nested helpers (Updater.app,
           # XPC services, Autoupdate) that must be sealed before the framework that
           # contains them, and the frameworks before the app. `--deep` would do this
@@ -118,7 +131,7 @@ jobs:
           if [ -d "$APP_PATH/Contents/Frameworks" ]; then
             while IFS= read -r item; do
               echo "Signing nested: ${item#"$APP_PATH/"}"
-              codesign --force --sign - --options runtime --timestamp=none "$item"
+              codesign --force --sign - --timestamp=none "$item"
             # -type d skips the compatibility symlinks at the framework root
             # (Updater.app → Versions/Current/Updater.app and friends); signing
             # through those would sign the same bundle twice.
@@ -126,11 +139,17 @@ jobs:
               \( -name "*.framework" -o -name "*.app" -o -name "*.xpc" \))
           fi
 
-          # Entitlements are applied only to the main executable — the camera key is
-          # what CameraCapturer needs under the hardened runtime.
-          codesign --force --sign - --options runtime --timestamp=none \
+          # Entitlements are applied only to the main executable, not the nested code.
+          codesign --force --sign - --timestamp=none \
             --entitlements Bilakh/Bilakh.entitlements \
             "$APP_PATH"
+
+          # Belt and braces: the runtime flag must not be set on the result.
+          if codesign -d --verbose=2 "$APP_PATH" 2>&1 | grep -q "runtime"; then
+            echo "::error::Hardened runtime is set on an ad-hoc signature — the app will"
+            echo "::error::fail to load Sparkle.framework at launch (Library Validation)."
+            exit 1
+          fi
 
           # Fail loudly rather than shipping a bundle whose seal doesn't verify.
           codesign --verify --deep --strict --verbose=2 "$APP_PATH"
@@ -149,6 +168,45 @@ jobs:
             echo "::error::Info.plist is not bound to the signature."
             exit 1
           fi
+
+      # ── Smoke test: does the signed app actually start? ─────────────────
+      # The gap that let v1.2.1/v1.2.2 ship dead: every check above inspects the
+      # signature but none of them *run* the binary, and a Library Validation
+      # failure kills the process in dyld before main(). Launch it for real and
+      # require it to still be alive a few seconds later.
+      - name: Smoke test launch
+        run: |
+          set -uo pipefail
+          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+          LOG="$RUNNER_TEMP/launch.log"
+
+          # LSUIElement app with no Dock tile — run the executable directly and
+          # background it rather than going through `open`, so its dyld errors land
+          # on our stderr instead of in the window server's lap.
+          "$APP_PATH/Contents/MacOS/Bilakh" >"$LOG" 2>&1 &
+          APP_PID=$!
+          sleep 8
+
+          if ! kill -0 "$APP_PID" 2>/dev/null; then
+            echo "::error::App exited within 8s of launch — it does not start."
+            echo "──── output ────"
+            cat "$LOG" || true
+            exit 1
+          fi
+
+          kill "$APP_PID" 2>/dev/null || true
+          wait "$APP_PID" 2>/dev/null || true
+
+          # dyld reports a failed load here even when something else keeps the
+          # process alive, so check the log independently of the liveness test.
+          if grep -qE "Library not loaded|different Team IDs|code signature.*not valid" "$LOG"; then
+            echo "::error::dyld refused to load an embedded library:"
+            cat "$LOG"
+            exit 1
+          fi
+
+          echo "Launch OK — process survived 8s with no dyld errors."
+          cat "$LOG" || true
 
       - name: Package zip
         id: package
