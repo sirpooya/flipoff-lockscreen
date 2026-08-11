@@ -216,6 +216,38 @@ struct LockScreenView: View {
                 .opacity(controller.revealed ? 1 : 0)
                 .allowsHitTesting(controller.revealed)
                 .animation(.easeOut(duration: 0.25), value: controller.revealed)
+
+                // Embedded Touch ID glyph — deliberately OUTSIDE the reveal fade
+                // above. Mounting this view is what arms the sensor without a system
+                // modal, and `LAAuthenticationView` needs somewhere real to draw its
+                // prompt: at opacity 0 there's no guarantee the framework routes to
+                // it rather than falling back to the alert this whole approach exists
+                // to avoid. So it stays visible on the bare shield — the one thing
+                // that does show before the first input, and the price of
+                // touch-to-unlock.
+                //
+                // `.id` on the generation is required, not cosmetic:
+                // LAAuthenticationView binds its context permanently at init, so a
+                // re-arm has to build a whole new view.
+                if let touchIDContext = controller.touchIDContext {
+                    VStack {
+                        Spacer()
+                        EmbeddedTouchIDView(context: touchIDContext)
+                            .frame(width: 26, height: 26)
+                            .id(controller.touchIDGeneration)
+                            .onAppear { controller.armEmbeddedTouchID() }
+                            // The system mark is a saturated red; drained to a
+                            // neutral grey so it reads as a quiet hint on the bare
+                            // shield instead of an error badge. A filter only
+                            // changes how the layer is composited — the view is
+                            // still on screen and still receives the prompt.
+                            .grayscale(1)
+                            .opacity(controller.revealed ? 0.55 : 0.28)
+                            .animation(.easeOut(duration: 0.25), value: controller.revealed)
+                            .accessibilityLabel("Touch ID — rest your finger on the sensor to unlock")
+                            .padding(.bottom, compact ? 16 : 40)
+                    }
+                }
             }
             .accessibilityElement(children: .contain)
             .accessibilityAddTraits(.isModal)

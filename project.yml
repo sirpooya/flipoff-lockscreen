@@ -57,6 +57,9 @@ targets:
           # `Bilakh` on case-insensitive filesystems (DMG/Applications).
           destination: sharedSupport
       - package: Sparkle
+      # Embedded Touch ID glyph on the lock screen (LAAuthenticationView). Without
+      # this the prompt falls back to a system modal over the shield.
+      - sdk: LocalAuthenticationEmbeddedUI.framework
   BilakhCLI:
     type: tool
     platform: macOS

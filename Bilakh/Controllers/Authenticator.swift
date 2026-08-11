@@ -52,25 +52,42 @@ class Authenticator {
         }.value
     }
 
-    /// Touch ID only, no password fallback — used to quietly re-arm in the
-    /// background while locked so resting a finger on the sensor unlocks
-    /// instantly without the user having to invoke the hotkey first.
-    func authenticateWithBiometricsOnly(reason: String = "Unlock Bilakh") async -> Bool {
+    /// A fresh context for the lock screen's embedded Touch ID glyph to pair with.
+    /// Handed out *before* any evaluation so `LAAuthenticationView` can be
+    /// constructed around it — the pairing happens at the view's init, and
+    /// `evaluatePolicy` afterwards renders into that view instead of a system alert.
+    ///
+    /// Returns nil where biometrics can't be used at all (no sensor, none
+    /// enrolled), so the caller can skip mounting a glyph that would never light up.
+    func makeAutoUnlockContext() -> LAContext? {
         cancelPendingAutoUnlock()
 
         let context = LAContext()
         context.localizedCancelTitle = "Cancel"
-        autoUnlockContext = context
-
-        defer { autoUnlockContext = nil }
 
         var error: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error) else {
             logger.info("Biometrics not available: \(error?.localizedDescription ?? "unknown")")
-            return false
+            return nil
         }
 
-        return await Task.detached { [context] in
+        autoUnlockContext = context
+        return context
+    }
+
+    /// Arms the sensor on a context previously handed out by
+    /// `makeAutoUnlockContext()`. Because that context is already paired with an
+    /// on-screen `LAAuthenticationView`, this presents **no modal** — the prompt
+    /// draws in the glyph on the lock screen. Resolves true the moment a matching
+    /// finger lands.
+    ///
+    /// Deliberately biometrics-only: the password fallback needs a real dialog and
+    /// goes through `authenticateWithPassword()` on an explicit user action.
+    func armEmbeddedBiometrics(
+        _ context: LAContext,
+        reason: String = "Unlock Bilakh"
+    ) async -> Bool {
+        await Task.detached { [context] in
             do {
                 return try await context.evaluatePolicy(
                     .deviceOwnerAuthenticationWithBiometrics,
@@ -79,7 +96,7 @@ class Authenticator {
             } catch {
                 let code = (error as NSError).code
                 await MainActor.run {
-                    logger.info("Biometric auto-unlock failed: code=\(code, privacy: .public) \(error.localizedDescription, privacy: .public)")
+                    logger.info("Embedded biometric read ended: code=\(code, privacy: .public) \(error.localizedDescription, privacy: .public)")
                 }
                 return false
             }

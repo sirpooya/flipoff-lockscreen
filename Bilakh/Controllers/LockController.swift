@@ -2,6 +2,7 @@ import Foundation
 import Combine
 import AppKit
 import SwiftUI
+import LocalAuthentication
 import os.log
 
 private let logger = Logger(subsystem: "in.pooya.bilakh", category: "LockController")
@@ -35,6 +36,17 @@ class LockController: ObservableObject {
     /// the lock screen keeps a subtle "your agent needs you" hint from this flag.
     @Published private(set) var agentAttention = false
 
+    /// Context for the lock screen's embedded Touch ID glyph, non-nil while locked
+    /// on a Mac with an enrolled sensor. The view pairs with it at init; arming
+    /// happens in `armEmbeddedTouchID()` once that pairing exists, which is what
+    /// keeps the prompt inside the shield instead of in a system modal.
+    @Published private(set) var touchIDContext: LAContext?
+
+    /// Bumped each time a fresh context is issued, so the lock screen can `.id()`
+    /// its glyph on it — an `LAAuthenticationView` binds its context permanently at
+    /// init, so a re-arm has to produce a brand new view.
+    @Published private(set) var touchIDGeneration = 0
+
     private let overlayManager = OverlayWindowManager()
     private let inputBlocker = InputBlocker()
     private let authenticator = Authenticator()
@@ -59,6 +71,7 @@ class LockController: ObservableObject {
     private var lastAuthFailTime: Date?
     private var lastPingTime: Date?
     private var revealHideTask: Task<Void, Never>?
+    private var touchIDArmTask: Task<Void, Never>?
     private var hasCapturedThisLock = false
 
     init() {
@@ -316,17 +329,80 @@ class LockController: ObservableObject {
         startAccessibilityMonitoring()
         sessionWasLost = false
         transitionTo(.locked)
+        issueTouchIDContext()
     }
 
-    // NOTE: there is deliberately no "passive Touch ID listener" here any more.
-    // The idea was to arm Touch ID on lock so resting a finger unlocked without
-    // the hotkey — but `LAContext.evaluatePolicy` ALWAYS presents a system sheet,
-    // and LocalAuthentication offers no way to wait for a finger silently. So the
-    // shield came up with a Touch ID modal on top of it, which broke the whole
-    // premise of this app (locking is silent; nothing announces itself until
-    // someone touches the machine) and handed an intruder a visible dialog to
-    // poke at. Touch ID is still available on demand: the hotkey path
-    // (`requestUnlock`) and the menu bar's "Unlock with Touch ID".
+    // MARK: - Embedded Touch ID
+    //
+    // Touch-to-unlock, without the system modal that made this unusable before.
+    // A plain `evaluatePolicy` ALWAYS raises an alert — there is no silent way to
+    // read the sensor — and that alert landed on top of the shield, announcing the
+    // lock and handing an intruder a dialog. The fix is `LAAuthenticationView`
+    // (macOS 12+): pair a context with an on-screen view first, and evaluation on
+    // that context draws into the view instead of an alert. See
+    // `EmbeddedTouchIDView` for the framework's constraints.
+    //
+    // Ordering is the whole game: the context must be published (so the lock
+    // screen can build the paired view) BEFORE anything evaluates on it.
+
+    /// Publishes a fresh context for the lock screen's glyph. Arming waits for
+    /// `armEmbeddedTouchID()`, which the view calls once it's actually on screen.
+    private func issueTouchIDContext() {
+        guard let context = authenticator.makeAutoUnlockContext() else {
+            // No sensor or nothing enrolled — leave the glyph unmounted rather than
+            // showing a Touch ID affordance that can never succeed.
+            touchIDContext = nil
+            return
+        }
+        touchIDContext = context
+        touchIDGeneration &+= 1
+    }
+
+    /// Arms the sensor against the currently published context. Called by the lock
+    /// screen after its `LAAuthenticationView` is in the window — evaluating before
+    /// the pairing is on screen is exactly what would put the prompt back into a
+    /// modal.
+    ///
+    /// Re-arms itself after each failed/cancelled read for as long as the lock is
+    /// up, so a wrong finger doesn't permanently disarm touch-to-unlock. Never sets
+    /// `authenticationInProgress`: that flag gates the hotkey, and holding it across
+    /// a pending read would bolt the user out from behind their own shield.
+    func armEmbeddedTouchID() {
+        touchIDArmTask?.cancel()
+        touchIDArmTask = Task { @MainActor [weak self] in
+            while let self, self.state == .locked, !Task.isCancelled {
+                guard let context = self.touchIDContext else { return }
+
+                // Stand down while a manual auth owns the sensor, then re-arm.
+                if self.authenticationInProgress {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    continue
+                }
+
+                let authenticated = await self.authenticator.armEmbeddedBiometrics(context)
+
+                guard self.state == .locked, !Task.isCancelled else { return }
+
+                if authenticated {
+                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
+                    self.unlockSucceeded = true
+                    try? await Task.sleep(nanoseconds: Constants.Timing.unlockSuccessAnimNs)
+                    guard !Task.isCancelled else { return }
+                    self.unlock()
+                    return
+                }
+
+                // A consumed context can't be re-evaluated — issue a new one, which
+                // bumps the generation so the view rebuilds around it.
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                guard self.state == .locked, !Task.isCancelled else { return }
+                self.issueTouchIDContext()
+                // The rebuilt view calls back into this method; stop this loop so
+                // the two don't run concurrently against the same sensor.
+                return
+            }
+        }
+    }
 
     /// A blocked keystroke/click while locked: wake the lock screen up. Plays the
     /// lock sound and pops the mascot in, then hides itself again after a few
@@ -539,6 +615,9 @@ class LockController: ObservableObject {
     private func unlock() {
         revealHideTask?.cancel()
         revealHideTask = nil
+        touchIDArmTask?.cancel()
+        touchIDArmTask = nil
+        touchIDContext = nil
         authenticator.cancelAll()
         stopAccessibilityMonitoring()
         stopTimer()
@@ -555,6 +634,9 @@ class LockController: ObservableObject {
     private func forceUnlock() {
         revealHideTask?.cancel()
         revealHideTask = nil
+        touchIDArmTask?.cancel()
+        touchIDArmTask = nil
+        touchIDContext = nil
         authenticationInProgress = false
         isAuthenticating = false
         authenticator.cancelAll()
