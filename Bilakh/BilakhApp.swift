@@ -21,13 +21,6 @@ struct BilakhApp: App {
         Settings {
             SettingsView()
         }
-
-        #if DEBUG
-        Window("Onboarding Playground", id: "onboarding-playground") {
-            OnboardingPlaygroundView()
-        }
-        .defaultSize(width: 1020, height: 660)
-        #endif
     }
 
     init() {
