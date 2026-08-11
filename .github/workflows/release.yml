@@ -12,7 +12,13 @@ permissions:
 
 jobs:
   release:
-    runs-on: macos-15
+    # macos-26 (Xcode 26.x), NOT macos-15 — `Bilakh/Resources/AppIcon.icon` is an
+    # Icon Composer bundle, a macOS 26 / Xcode 26 format. Xcode 16 on macos-15 does
+    # not recognize it: instead of compiling it into AppIcon.icns it silently
+    # *copies* it into Resources as an inert folder and sets no CFBundleIconFile /
+    # CFBundleIconName, so v1.2.0 and earlier shipped with no icon at all. The CI
+    # log tell is `Copying AppIcon.icon` where it should read `Compiling`.
+    runs-on: macos-26
 
     steps:
       - name: Checkout
@@ -30,13 +36,14 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
-      # ── Build unsigned release ──────────────────────────────────────────
-      # No Developer ID cert is available (that needs paid Program enrollment), so
-      # the app ships unsigned. Gatekeeper will require right-click → Open on first
-      # launch. Update integrity does not depend on Apple signing here — Sparkle
-      # verifies the EdDSA signature below against SUPublicEDKey in Info.plist and
-      # refuses anything that doesn't match.
-      - name: Build release (unsigned)
+      # ── Build without Apple signing ─────────────────────────────────────
+      # No Developer ID cert is available (that needs paid Program enrollment), and
+      # the Team-ID automatic signing in project.yml can't resolve on a runner. The
+      # bundle is ad-hoc signed in a later step instead — needed for TCC, not for
+      # Gatekeeper, which still warns on first open. Update integrity does not depend
+      # on Apple signing either way: Sparkle verifies the EdDSA signature below
+      # against SUPublicEDKey in Info.plist and refuses anything that doesn't match.
+      - name: Build release (no Apple identity)
         run: |
           set -o pipefail
           xcodebuild -project Bilakh.xcodeproj \
@@ -48,6 +55,100 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             clean build 2>&1 | xcbeautify
+
+      # ── Verify the app icon actually compiled ───────────────────────────
+      # Guard, not a nicety: a runner without Xcode 26 copies AppIcon.icon in as an
+      # inert folder rather than compiling it, and the build still *succeeds* — the
+      # app just has no icon anywhere. That shipped in v1.2.0 unnoticed. Fail the
+      # release instead of publishing an iconless build.
+      - name: Verify app icon
+        run: |
+          set -euo pipefail
+          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+
+          if [ ! -f "$APP_PATH/Contents/Resources/AppIcon.icns" ]; then
+            echo "::error::AppIcon.icns missing — AppIcon.icon was not compiled."
+            echo "::error::This runner's Xcode is too old for the Icon Composer format."
+            echo "::error::Xcode in use: $(xcodebuild -version | tr '\n' ' ')"
+            ls -la "$APP_PATH/Contents/Resources/" || true
+            exit 1
+          fi
+
+          # The .icns alone isn't enough — without the plist key the Finder and Dock
+          # never look for it.
+          ICON_NAME=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIconName" \
+            "$APP_PATH/Contents/Info.plist" 2>/dev/null || true)
+          if [ -z "$ICON_NAME" ]; then
+            echo "::error::CFBundleIconName is not set in the built Info.plist."
+            exit 1
+          fi
+
+          # The raw Icon Composer source has no business in the shipped bundle; its
+          # presence means the asset-catalog step fell back to a plain copy.
+          if [ -e "$APP_PATH/Contents/Resources/AppIcon.icon" ]; then
+            echo "::error::Uncompiled AppIcon.icon was copied into Resources."
+            exit 1
+          fi
+
+          echo "Icon OK — AppIcon.icns present, CFBundleIconName=${ICON_NAME}"
+
+      # ── Ad-hoc sign the bundle ──────────────────────────────────────────
+      # CODE_SIGNING_ALLOWED=NO leaves only a *linker* ad-hoc signature on the
+      # executable: `codesign -dv` reports "Sealed Resources=none" and "Info.plist=
+      # not bound", i.e. the bundle itself is unsigned. TCC has no stable identity to
+      # hang a grant on in that state, so Accessibility never sticks — the user
+      # grants it, relaunches, and the app still reports untrusted. That was the
+      # v1.2.0 bug. A real ad-hoc bundle signature gives the bundle a cdhash, which
+      # TCC can key on, and binds Info.plist so SUPublicEDKey can't be swapped.
+      #
+      # This is NOT Developer ID: Gatekeeper still warns on first open, and because
+      # an ad-hoc cdhash changes every build, the Accessibility grant resets on each
+      # update (macOS shows it enabled but stale — toggle it off/on). Fixing that for
+      # good needs a paid Developer ID cert.
+      - name: Ad-hoc sign bundle
+        run: |
+          set -euo pipefail
+          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+
+          # Inside-out, deepest first: Sparkle ships nested helpers (Updater.app,
+          # XPC services, Autoupdate) that must be sealed before the framework that
+          # contains them, and the frameworks before the app. `--deep` would do this
+          # in one shot but is deprecated and would also stamp the app's entitlements
+          # onto every nested binary.
+          if [ -d "$APP_PATH/Contents/Frameworks" ]; then
+            while IFS= read -r item; do
+              echo "Signing nested: ${item#"$APP_PATH/"}"
+              codesign --force --sign - --options runtime --timestamp=none "$item"
+            # -type d skips the compatibility symlinks at the framework root
+            # (Updater.app → Versions/Current/Updater.app and friends); signing
+            # through those would sign the same bundle twice.
+            done < <(find "$APP_PATH/Contents/Frameworks" -depth -type d \
+              \( -name "*.framework" -o -name "*.app" -o -name "*.xpc" \))
+          fi
+
+          # Entitlements are applied only to the main executable — the camera key is
+          # what CameraCapturer needs under the hardened runtime.
+          codesign --force --sign - --options runtime --timestamp=none \
+            --entitlements Bilakh/Bilakh.entitlements \
+            "$APP_PATH"
+
+          # Fail loudly rather than shipping a bundle whose seal doesn't verify.
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+          echo "── Resulting signature ──"
+          codesign -dv "$APP_PATH" 2>&1
+
+          # The two markers that were wrong in v1.2.0. Checked explicitly so a
+          # regression here fails the release instead of shipping quietly.
+          SIG_INFO=$(codesign -dv "$APP_PATH" 2>&1)
+          if echo "$SIG_INFO" | grep -q "Sealed Resources=none"; then
+            echo "::error::Bundle resources were not sealed — TCC grants will not persist."
+            exit 1
+          fi
+          if echo "$SIG_INFO" | grep -q "Info.plist=not bound"; then
+            echo "::error::Info.plist is not bound to the signature."
+            exit 1
+          fi
 
       - name: Package zip
         id: package

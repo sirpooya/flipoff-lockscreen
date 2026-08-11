@@ -76,6 +76,18 @@ Developer ID Application cert, which isn't in the keychain. Fine for local use o
 your own Macs; the released `.zip` shows a Gatekeeper warning on first open
 (right-click → Open).
 
+**Released builds must be ad-hoc signed as a bundle, and `CODE_SIGNING_ALLOWED=NO`
+does not do that.** That flag leaves only a *linker* ad-hoc signature on the
+executable: `codesign -dv` reports `Sealed Resources=none` and `Info.plist=not
+bound`, which means the bundle itself is unsigned. TCC cannot attach a grant to a
+bundle in that state, so **Accessibility silently never persists** — the user grants
+it, relaunches, and the app still reads untrusted. This shipped in v1.2.0. `release
+.yml` now runs an explicit `codesign --sign -` pass (nested Sparkle helpers first,
+deepest-first, then the app with entitlements) and fails the release if either
+marker comes back wrong. Caveat that remains: an ad-hoc cdhash changes every build,
+so the Accessibility grant resets on each update — macOS shows it enabled but stale,
+and the user has to toggle it off/on. Only a Developer ID cert fixes that for good.
+
 ## Auto-update (Sparkle)
 
 Sparkle 2.9.5, re-added after the fork had stripped it. The original removal reason
@@ -114,10 +126,20 @@ resolve there. It deliberately does **not** run `BilakhTests`: the test bundle i
 injected into the host app and needs a real signature (see the Team-ID `dlopen`
 trap above), so tests are a local-only affair.
 
-`release.yml` fires on `v*` tags: builds unsigned Release → `ditto` zip → signs with
-the EdDSA key → uploads to the GitHub Release → regenerates `appcast.xml` and
-commits it to `main`. It checks out `main` rather than the detached tag so that
-final commit has a branch to land on.
+`release.yml` fires on `v*` tags: builds Release without an Apple identity → verifies
+the icon compiled → ad-hoc signs the bundle → `ditto` zip → signs with the EdDSA key
+→ uploads to the GitHub Release → regenerates `appcast.xml` and commits it to `main`.
+It checks out `main` rather than the detached tag so that final commit has a branch
+to land on.
+
+**Both workflows must run on `macos-26`, not `macos-15`.**
+`Bilakh/Resources/AppIcon.icon` is an Icon Composer bundle — a macOS 26 / Xcode 26
+format. Xcode 16 doesn't recognize it and **the build still succeeds**: instead of
+compiling it to `AppIcon.icns` it copies the folder into `Resources` verbatim and
+sets no `CFBundleIconName`, so the app ships with no icon anywhere. v1.2.0 went out
+that way. The log tell is `Copying AppIcon.icon` where a correct build reads
+`Emplaced …/AppIcon.icns`. `release.yml` now has a "Verify app icon" step that fails
+the release on a missing `.icns`, a missing plist key, or a leaked raw `.icon`.
 
 ## Mascot / emoji
 

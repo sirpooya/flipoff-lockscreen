@@ -8,7 +8,9 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15
+    # Kept in lockstep with release.yml — see the runner note there. Xcode 26 is
+    # required to compile AppIcon.icon (Icon Composer format).
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v6

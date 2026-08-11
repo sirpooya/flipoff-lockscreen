@@ -17,7 +17,7 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.0</string>
+	<string>1.2.1</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -30,7 +30,7 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>14</string>
+	<string>15</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>LSUIElement</key>
@@ -39,20 +39,6 @@
 	<string>Bilakh needs Accessibility access to block keyboard and mouse input while your lock screen is active.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Bilakh can snap a photo of whoever tries the lock screen and failed to unlock, saved to your Downloads folder.</string>
-	<!-- Sparkle auto-update. The feed is served straight out of this repo on
-	     raw.githubusercontent.com — a host we control via the repo itself, so there
-	     is no registerable third-party domain in the loop (the reason the upstream
-	     fork's getbilakh.com feed was ripped out). appcast.xml is regenerated and
-	     committed by .github/workflows/release.yml on every v* tag.
-
-	     SUPublicEDKey is the public half of an EdDSA keypair whose private half
-	     lives in the login keychain (Sparkle's generate_keys) and in the repo secret
-	     SPARKLE_PRIVATE_KEY. Sparkle refuses any update whose signature doesn't
-	     verify against this key, which is what makes shipping unsigned/un-notarized
-	     zips over HTTPS safe from tampering.
-
-	     NOTE: `PlistBuddy -c Set` rewrites this file and drops every comment. If you
-	     bump the version with it, restore this block afterwards. -->
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
