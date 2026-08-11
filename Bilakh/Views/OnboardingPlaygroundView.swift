@@ -267,7 +267,8 @@ struct OnboardingPlaygroundStage: View {
                 Text("Press once to lock, press again to unlock.").font(.callout).foregroundStyle(.secondary)
             }
             Text(params.recordedKeyDisplay)
-                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                .font(.system(size: 18, weight: .light, design: .monospaced))
+                .tracking(1)
                 .foregroundStyle(.orange)
                 .padding(.horizontal, 24).padding(.vertical, 12)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(Color.orange.opacity(0.08)))
@@ -287,7 +288,7 @@ struct OnboardingPlaygroundStage: View {
                         .font(.system(size: 36, weight: .light)).foregroundStyle(.orange)
                         .transition(.scale.combined(with: .opacity))
                 } else {
-                    Image(systemName: "shield.lefthalf.filled")
+                    Image(systemName: "checkmark.shield")
                         .font(.system(size: 36, weight: .light)).foregroundStyle(.orange)
                         .transition(.scale.combined(with: .opacity))
                 }
@@ -422,7 +423,7 @@ struct OnboardingPlaygroundStage: View {
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
                     Text(params.recordedKeyDisplay)
-                        .font(.system(size: 14, weight: .regular, design: .monospaced)).foregroundStyle(.orange)
+                        .font(.system(size: 14, weight: .light, design: .monospaced)).tracking(1).foregroundStyle(.orange)
                         .frame(height: 18)
                         .padding(.horizontal, 12).padding(.vertical, 6)
                         .background(RoundedRectangle(cornerRadius: 6, style: .continuous).fill(Color.orange.opacity(0.08)))

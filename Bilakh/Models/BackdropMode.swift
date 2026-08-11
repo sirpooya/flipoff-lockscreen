@@ -13,9 +13,10 @@ import Foundation
 ///
 /// The trade: `.frozen` hides what was on screen from a passerby, `.live` sells the
 /// "this machine isn't locked" illusion. Screen Recording is only needed for `.frozen`.
+/// Case order is the segmented-control order — Live sits on the left as the default.
 enum BackdropMode: String, CaseIterable, Identifiable {
-    case frozen
     case live
+    case frozen
 
     var id: String { rawValue }
 
@@ -28,8 +29,8 @@ enum BackdropMode: String, CaseIterable, Identifiable {
 
     var subtitle: String {
         switch self {
-        case .frozen: return "Screenshot of the desktop, taken as the lock goes up"
-        case .live: return "The real desktop, still animating — nothing behind is clickable"
+        case .frozen: return "A screenshot, taken as the lock goes up. Needs Screen Recording."
+        case .live: return "The real desktop, still moving. Nothing behind is clickable."
         }
     }
 
@@ -37,7 +38,7 @@ enum BackdropMode: String, CaseIterable, Identifiable {
     var needsScreenCapture: Bool { self == .frozen }
 
     static let storageKey = "backdropMode"
-    static let defaultValue: BackdropMode = .frozen
+    static let defaultValue: BackdropMode = .live
 
     static func resolved(from raw: String?) -> BackdropMode {
         guard let raw, let mode = BackdropMode(rawValue: raw) else { return defaultValue }

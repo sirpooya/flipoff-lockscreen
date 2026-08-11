@@ -224,7 +224,8 @@ struct OnboardingView: View {
                             .foregroundStyle(Color("BilakhAmber").opacity(0.7))
                     } else {
                         Text(recordedKeyDisplay)
-                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                            .font(.system(size: 18, weight: .light, design: .monospaced))
+                            .tracking(1)
                             .foregroundStyle(Color("BilakhAmber"))
                     }
                 }
@@ -256,10 +257,11 @@ struct OnboardingView: View {
 
     // MARK: - Step 3: Permissions
 
-    /// Accessibility and Screen Recording are required to advance; Camera is
-    /// optional (used only for the future "look up, get unlocked" gesture) and
-    /// has its own Skip affordance so it never blocks onboarding.
-    private var allRequiredGranted: Bool { accessibilityGranted && screenRecordingGranted }
+    /// Only Accessibility is required to advance — it's the one grant a lock can't
+    /// work without. Screen Recording is optional because the default Live backdrop
+    /// shows the real desktop and captures nothing; it's only needed if you switch
+    /// to the frozen screenshot. Camera is optional too (intruder photo).
+    private var allRequiredGranted: Bool { accessibilityGranted }
 
     private var permissionsStep: some View {
         VStack(spacing: 20) {
@@ -270,7 +272,7 @@ struct OnboardingView: View {
                         .foregroundStyle(Color("BilakhAmber"))
                         .transition(.scale.combined(with: .opacity))
                 } else {
-                    Image(systemName: "lock.open.fill")
+                    Image(systemName: "checkmark.shield")
                         .font(.system(size: 36, weight: .light))
                         .foregroundStyle(Color("BilakhAmber"))
                         .transition(.scale.combined(with: .opacity))
@@ -299,9 +301,10 @@ struct OnboardingView: View {
 
                 permissionRow(
                     title: "Screen Recording",
-                    detail: "Captures your desktop before the shield goes up.",
+                    detail: "Only if you want the desktop frozen behind the lock instead of live.",
                     granted: screenRecordingGranted,
                     showRelaunchHint: false,
+                    optional: true,
                     onRequest: {
                         ScreenRecordingChecker.requestAccess()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -500,7 +503,8 @@ struct OnboardingView: View {
             VStack(spacing: 6) {
                 HStack(spacing: 8) {
                     Text(recordedKeyDisplay)
-                        .font(.system(size: 14, weight: .regular, design: .monospaced))
+                        .font(.system(size: 14, weight: .light, design: .monospaced))
+                        .tracking(1)
                         .foregroundStyle(Color("BilakhAmber"))
                         .frame(height: 18)
                         .padding(.horizontal, 12)

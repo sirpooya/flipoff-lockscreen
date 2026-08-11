@@ -161,6 +161,16 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
+                SettingsRow("Behind the lock", subtitle: backdropMode.subtitle) {
+                    SettingsSegmentedControl(
+                        selection: $backdropMode,
+                        options: BackdropMode.allCases.map { ($0.title, $0) },
+                        width: 200
+                    )
+                }
+
+                SettingsDivider()
+
                 SettingsRow("Message", subtitle: "Shown beneath the mascot. Turn off to hide it.") {
                     HStack(spacing: 10) {
                         SettingsSwitch(isOn: $showMessage)
@@ -572,15 +582,6 @@ struct SettingsView: View {
                     }
                 }
 
-                SettingsDivider()
-
-                SettingsRow("Behind the lock", subtitle: backdropMode.subtitle) {
-                    SettingsSegmentedControl(
-                        selection: $backdropMode,
-                        options: BackdropMode.allCases.map { ($0.title, $0) },
-                        width: 200
-                    )
-                }
             }
 
             SettingsPanel {
@@ -653,7 +654,7 @@ struct SettingsView: View {
         SettingsPanel {
             SettingsRow(
                 "Accessibility",
-                subtitle: accessibilityGranted ? "Granted" : "Required to block keyboard input while locked."
+                subtitle: accessibilityGranted ? nil : "Required to block keyboard input while locked."
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -676,16 +677,15 @@ struct SettingsView: View {
 
             SettingsDivider()
 
-            // Optional, unlike Accessibility: without it the lock screen falls
-            // back to the desktop wallpaper rather than the live desktop. In Live
-            // backdrop mode nothing is captured at all, so the grant is moot.
+            // Optional, unlike Accessibility: only the Frozen backdrop captures
+            // anything. This row reports the system grant and nothing else — it
+            // deliberately does NOT react to the backdrop setting, so the state
+            // shown here always matches System Settings.
             SettingsRow(
                 "Screen Recording",
-                subtitle: backdropMode == .live
-                    ? "Not used — the Live backdrop shows your real desktop instead of a screenshot."
-                    : (screenRecordingGranted
-                        ? "Granted"
-                        : "Optional — used to freeze your desktop behind the lock screen. Without it, your wallpaper is shown instead.")
+                subtitle: screenRecordingGranted
+                    ? nil
+                    : "Optional — only needed for the Frozen backdrop, which freezes your desktop behind the lock screen."
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -693,9 +693,8 @@ struct SettingsView: View {
                         systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "photo"
                     )
                     .foregroundStyle(screenRecordingGranted ? settingsAccentColor : .secondary)
-                    .opacity(backdropMode == .live ? 0.5 : 1)
 
-                    if !screenRecordingGranted, backdropMode != .live {
+                    if !screenRecordingGranted {
                         Button {
                             // Ask first — the system prompt only appears while the
                             // grant is still undecided; once denied, only Settings works.
@@ -717,7 +716,7 @@ struct SettingsView: View {
             SettingsRow(
                 "Camera",
                 subtitle: cameraGranted
-                    ? "Granted"
+                    ? nil
                     : "Optional — snaps a photo on a failed unlock attempt, saved to Downloads."
             ) {
                 HStack(spacing: 10) {
@@ -1029,8 +1028,16 @@ private struct SettingsRow<Control: View>: View {
 
             Spacer(minLength: 12)
 
+            // `maxWidth` (not `minWidth`) so the control's box stretches to
+            // the row's true trailing edge — a `minWidth`-only box leaves
+            // leftover space in the Spacer above instead, so anything
+            // narrower than the old 200pt minimum (a checkmark + label, a
+            // small button) landed wherever that fixed width happened to
+            // end rather than flush against the panel border. This was the
+            // "not aligned with line" issue across every Settings page that
+            // uses SettingsRow with a narrow trailing control.
             control
-                .frame(minWidth: 200, alignment: .trailing)
+                .frame(minWidth: 200, maxWidth: .infinity, alignment: .trailing)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1110,6 +1117,7 @@ private struct SettingsSwitch: View {
             .labelsHidden()
             .toggleStyle(.switch)
             .controlSize(.small)
+            .tint(settingsAccentColor)
     }
 }
 
