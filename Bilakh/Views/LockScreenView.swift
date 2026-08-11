@@ -67,20 +67,16 @@ struct LockScreenView: View {
                                     .opacity(2.0 - Double(successScale))
                                     .shadow(color: Color("BilakhTeal").opacity(0.3), radius: 50, y: 0)
                             } else {
-                                ZStack {
-                                    Ellipse()
-                                        .fill(Color("BilakhTeal").opacity(0.02 + breathe * 0.02))
-                                        .frame(width: mascotSize * 0.45, height: mascotSize * 0.1)
-                                        .blur(radius: 12)
-                                        .offset(y: mascotSize * 0.45)
-
-                                    mascotGlyph
-                                        .frame(width: mascotSize, height: mascotSize)
-                                        .shadow(color: Color("BilakhTeal").opacity(0.15 + breathe * 0.08), radius: 35 + breathe * 8, y: 10)
-                                        .shadow(color: .black.opacity(0.15), radius: 45, y: 30)
-                                        .offset(y: breathe * 4)
-                                }
-                                .opacity(controller.isAuthenticating ? 0.5 : 1)
+                                // No teal glow behind the mascot — it used to carry a
+                                // breathing teal shadow and a teal pool underneath.
+                                // Only the neutral drop shadow is left, so the glyph
+                                // reads as sitting over the desktop rather than lit
+                                // from within.
+                                mascotGlyph
+                                    .frame(width: mascotSize, height: mascotSize)
+                                    .shadow(color: .black.opacity(0.15), radius: 45, y: 30)
+                                    .offset(y: breathe * 4)
+                                    .opacity(controller.isAuthenticating ? 0.5 : 1)
                             }
                         }
                         .scaleEffect(mascotPopped ? 1 : 0.5)
@@ -117,7 +113,10 @@ struct LockScreenView: View {
                                     stroke: .black,
                                     strokeWidth: 3
                                 )
-                                .shadow(color: .black.opacity(0.35), radius: 10, y: 4)
+                                // Light shadow only — the black outline is what keeps
+                                // this legible over any backdrop, so the shadow is
+                                // just a touch of lift, not a second outline.
+                                .shadow(color: .black.opacity(0.18), radius: 6, y: 2)
                                 .scaleEffect(messagePopped ? 1 : 0.4)
                             }
                         }
@@ -262,13 +261,17 @@ struct LockScreenView: View {
         }
         .onChange(of: controller.revealed) { _, isRevealed in
             guard isRevealed else {
-                // Drop the pop states immediately (no animation — the container
-                // fade above already covers the visible transition) so the next
-                // reveal on this same lock pops in fresh instead of appearing
-                // pre-popped.
-                appeared = false
-                mascotPopped = false
-                messagePopped = false
+                // Mirror the entrance on the way out — scale back down while fading
+                // instead of cutting, so the reveal ends as deliberately as it
+                // began. Quicker than the pop-in (0.22s against 0.5s): an exit that
+                // takes as long as the entrance reads as hesitation. They still land
+                // on `false`, so the next reveal on this same lock pops in fresh
+                // rather than appearing pre-popped.
+                withAnimation(reduceMotion ? .none : .easeIn(duration: 0.22)) {
+                    appeared = false
+                    mascotPopped = false
+                    messagePopped = false
+                }
                 return
             }
             withAnimation(reduceMotion ? .none : .timingCurve(0.16, 1, 0.3, 1, duration: 0.6)) { appeared = true }

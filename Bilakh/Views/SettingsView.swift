@@ -193,7 +193,7 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks. Choose None to turn it off.") {
+                SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks.") {
                     HStack(spacing: 10) {
                         SettingsDropdown(
                             selection: $selectedLockSound,
@@ -652,7 +652,11 @@ struct SettingsView: View {
         SettingsPanel {
             SettingsRow(
                 "Accessibility",
-                subtitle: accessibilityGranted ? nil : "Required to block keyboard input while locked."
+                // Subtitles stay put whether or not the grant is in place: the row
+                // explains what the permission is *for*, which doesn't stop being
+                // true once it's granted, and rows that lose a line on grant make
+                // the list jump as the poll catches up.
+                subtitle: "Required to block keyboard input while locked."
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -682,7 +686,7 @@ struct SettingsView: View {
             SettingsRow(
                 "Screen Recording",
                 // No "Optional —" prefix: the chip on the right already says it.
-                subtitle: screenRecordingGranted ? nil : "Only for the Frozen backdrop."
+                subtitle: "Only for the Frozen backdrop."
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -712,7 +716,7 @@ struct SettingsView: View {
             // camera snapshot — everything else about the lock screen still works.
             SettingsRow(
                 "Camera",
-                subtitle: cameraGranted ? nil : "Photo of a failed unlock, saved to Downloads."
+                subtitle: "Photo of a failed unlock, saved to Downloads."
             ) {
                 HStack(spacing: 10) {
                     Label(
@@ -776,7 +780,7 @@ struct SettingsView: View {
 
             SettingsPanel {
                 SettingsRow(
-                    "Made by Pooya",
+                    "Made by Pooya Kamel",
                     subtitle: "Forked from lockpaw by Erik Nielsen.",
                     subtitleSize: 11
                 ) {
