@@ -162,13 +162,32 @@ frame (Text has no scale-to-fit).
 
 ## Gotchas
 
-- **Never call `LAContext.evaluatePolicy` on lock.** It *always* presents a system
-  sheet — LocalAuthentication has no API for silently waiting on the Touch ID
-  sensor. A "passive Touch ID listener" armed at lock time (removed in 1.2.4)
-  therefore put a modal on top of the shield the instant you locked: it announced
-  the lock, contradicting the silent-shield design, and gave an intruder a dialog to
-  interact with. Touch ID belongs only on explicit request — `requestUnlock()` from
-  the hotkey, or the menu bar's "Unlock with Touch ID".
+- **Touch-to-unlock requires `LAAuthenticationView`, never a bare
+  `evaluatePolicy`.** A plain `evaluatePolicy` *always* raises a system sheet —
+  there is no API for silently reading the sensor — and on lock that sheet landed on
+  top of the shield, announcing the lock and handing an intruder a dialog (the 1.2.3
+  bug). The fix (1.2.5) is `LAAuthenticationView` from
+  `LocalAuthenticationEmbeddedUI` (macOS 12+): pair a context with an on-screen view
+  at the view's init, and evaluation *on that same context* draws into the view
+  instead of an alert. Ordering is load-bearing — `LockController.issueTouchIDContext()`
+  publishes the context so `LockScreenView` can build the paired view, and only then
+  does `armEmbeddedTouchID()` evaluate. Evaluate before the view exists and you get
+  the modal back. Three further constraints, all learned the hard way:
+  - The view **must be visible**; it is mounted outside `LockScreenView`'s
+    `.opacity(revealed ? 1 : 0)` fade for that reason. At opacity 0 there's no
+    guarantee the framework routes to it rather than falling back to the alert. This
+    is why a Touch ID glyph shows on the otherwise-bare shield — a deliberate
+    exception to "nothing draws until first input".
+  - Its **window must be key** (`LAAuthenticationView … is not visible to user
+    because … is not key`). `OverlayWindow.canBecomeKey` is already true and cursor
+    concealment calls `makeKey()`; if focus is stolen mid-lock the sensor disarms
+    until the overlay is key again.
+  - A context is **single-use**: after any failed read, `issueTouchIDContext()`
+    mints a new one and bumps `touchIDGeneration`, which the view uses as its
+    `.id()` — `LAAuthenticationView` binds its context permanently at init, so a
+    re-arm needs a whole new view.
+  Password fallback still needs the ordinary modal path
+  (`authenticateWithPassword()`), on an explicit user action only.
 - **App-wide notifications must be observed by `LockController`, never by a view.**
   `.bilakhLock` / `.bilakhUnlock` / `.bilakhUnlockPassword` were once handled by
   `.onReceive` in `MenuBarView` — but a `MenuBarExtra`'s content view only exists
