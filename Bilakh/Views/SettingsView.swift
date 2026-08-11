@@ -770,13 +770,13 @@ struct SettingsView: View {
                     subtitle: "Forked from lockpaw by Erik Nielsen.",
                     subtitleSize: 11
                 ) {
-                    Link("GitHub", destination: repoURL)
+                    Link("View on GitHub", destination: repoURL)
                         .buttonStyle(.link)
                 }
 
                 SettingsDivider()
 
-                Text("Bilakh is a visual privacy tool. It helps prevent accidental input while your screen is guarded. For security, use your Mac's lock screen (Ctrl+Cmd+Q).")
+                Text("Bilakh busts intruders with a photo and shields your screen from prying eyes. For real security, use your Mac's lock screen (Ctrl+Cmd+Q).")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -1099,7 +1099,12 @@ private struct SettingsSwitch: View {
 
 private struct SettingsDivider: View {
     var body: some View {
-        Divider()
-            .padding(.leading, 0)
+        // A plain 1px rectangle, not `Divider()` — the system separator draws
+        // full-bleed and runs past the card's rounded edge instead of stopping
+        // at its padding.
+        Rectangle()
+            .fill(Color.primary.opacity(0.08))
+            .frame(height: 1)
+            .padding(.horizontal, 12)
     }
 }

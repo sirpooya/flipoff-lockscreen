@@ -3,6 +3,9 @@ import SwiftUI
 struct MenuBarView: View {
     @ObservedObject var controller: LockController
     @ObservedObject private var updater = UpdateController.shared
+    #if DEBUG
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     var body: some View {
         Group {
@@ -54,6 +57,12 @@ struct MenuBarView: View {
                 }
                 .disabled(!updater.canCheckForUpdates)
             }
+
+            #if DEBUG
+            Button("Onboarding Playground\u{2026}") {
+                openWindow(id: "onboarding-playground")
+            }
+            #endif
 
             Button("Quit Bilakh") {
                 NSApplication.shared.terminate(nil)

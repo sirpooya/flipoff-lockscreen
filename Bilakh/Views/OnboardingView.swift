@@ -124,19 +124,12 @@ struct OnboardingView: View {
                 Text("Welcome to Bilakh")
                     .font(.title2.weight(.semibold))
 
-                Text("A screen guard for when your\ncomputer is working and you're not.")
+                Text("Keeps your screen safe\nwhile you step away.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .lineSpacing(2)
             }
-
-            Text("Bilakh is a visual privacy tool, not a security lock. For real security, use your Mac's lock screen (Ctrl+Cmd+Q).")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 24)
-                .padding(.top, 8)
         }
     }
 
