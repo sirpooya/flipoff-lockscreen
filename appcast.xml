@@ -12,58 +12,13 @@
             <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
-**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/compare/v1.2.2...v1.2.3
+**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/compare/v1.1.2...v1.2.3
             ]]></description>
             <enclosure
                 url="https://github.com/sirpooya/osx-bilakh-locksceen/releases/download/v1.2.3/Bilakh-v1.2.3.zip"
                 length="3947986"
                 type="application/octet-stream"
                 sparkle:edSignature="RgA/HB2PMUuwjJbXw4XHXyQmtkgaYCzViCD7xTBribeABzqcm/HuGE9Ut1ftRWx7DlZ6Xa8mraggoiaP9NdmAw==" />
-        </item>
-        <item>
-            <title>1.2.2</title>
-            <pubDate>Tue, 11 Aug 2026 11:20:35 +0000</pubDate>
-            <sparkle:version>16</sparkle:version>
-            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/compare/v1.2.1...v1.2.2
-            ]]></description>
-            <enclosure
-                url="https://github.com/sirpooya/osx-bilakh-locksceen/releases/download/v1.2.2/Bilakh-v1.2.2.zip"
-                length="3948330"
-                type="application/octet-stream"
-                sparkle:edSignature="sjBPbEt5ldSyq0HIhv4FsZAplbUYalESSQ3NvwRAw0iKzfkIgp+kqxNAumUN3YAoJbGaXmzkPyFMrvrwfh0ZDQ==" />
-        </item>
-        <item>
-            <title>1.2.1</title>
-            <pubDate>Tue, 11 Aug 2026 10:54:36 +0000</pubDate>
-            <sparkle:version>15</sparkle:version>
-            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/compare/v1.2.0...v1.2.1
-            ]]></description>
-            <enclosure
-                url="https://github.com/sirpooya/osx-bilakh-locksceen/releases/download/v1.2.1/Bilakh-v1.2.1.zip"
-                length="3951514"
-                type="application/octet-stream"
-                sparkle:edSignature="aKebjQqFjp2XJSojz5FwEMyN0g3xjB9jDLceooL7TzxzArL0Hqvorh4Nus8Wy0A3O5VQF4LcMgt8Ai3rf6qABg==" />
-        </item>
-        <item>
-            <title>1.2.0</title>
-            <pubDate>Tue, 11 Aug 2026 10:38:55 +0000</pubDate>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[
-**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/compare/v1.1.2...v1.2.0
-            ]]></description>
-            <enclosure
-                url="https://github.com/sirpooya/osx-bilakh-locksceen/releases/download/v1.2.0/Bilakh-v1.2.0.zip"
-                length="2445959"
-                type="application/octet-stream"
-                sparkle:edSignature="uglu1yR3gysWsvETa+V3HQx0Evudv/Hh5feGxMWR2nfUNC1vsBVLfEJvnk4QeQIRf9HkMSC/OujIfi6/hI3aDw==" />
         </item>
         <item>
             <title>1.1.2</title>
