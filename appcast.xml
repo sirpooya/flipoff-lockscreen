@@ -6,6 +6,21 @@
         <description>Most recent changes to Bilakh.</description>
         <language>en</language>
         <item>
+            <title>1.2.3</title>
+            <pubDate>Tue, 11 Aug 2026 11:28:53 +0000</pubDate>
+            <sparkle:version>17</sparkle:version>
+            <sparkle:shortVersionString>1.2.3</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+**Full Changelog**: https://github.com/sirpooya/osx-bilakh-locksceen/compare/v1.2.2...v1.2.3
+            ]]></description>
+            <enclosure
+                url="https://github.com/sirpooya/osx-bilakh-locksceen/releases/download/v1.2.3/Bilakh-v1.2.3.zip"
+                length="3947986"
+                type="application/octet-stream"
+                sparkle:edSignature="RgA/HB2PMUuwjJbXw4XHXyQmtkgaYCzViCD7xTBribeABzqcm/HuGE9Ut1ftRWx7DlZ6Xa8mraggoiaP9NdmAw==" />
+        </item>
+        <item>
             <title>1.2.2</title>
             <pubDate>Tue, 11 Aug 2026 11:20:35 +0000</pubDate>
             <sparkle:version>16</sparkle:version>
