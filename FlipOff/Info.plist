@@ -42,7 +42,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://raw.githubusercontent.com/sirpooya/osx-flipoff-lockscreen/main/appcast.xml</string>
+	<string>https://raw.githubusercontent.com/sirpooya/flipoff-lockscreen/main/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>XPeIzL4GHFXBMLCP+A/vxqQE4Bn8tGi7jkw9sRBHXSc=</string>
 	<key>SUScheduledCheckInterval</key>

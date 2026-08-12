@@ -5,7 +5,7 @@
 ### Changed
 
 - Renamed the app from Bilakh to **FlipOff** — new bundle id (`in.pooya.flipoff`),
-  new repo (`osx-flipoff-lockscreen`), new Sparkle feed. Existing Bilakh installs do
+  new repo (`flipoff-lockscreen`), new Sparkle feed. Existing Bilakh installs do
   not auto-migrate to this build; see CLAUDE.md's Auto-update section.
 - Renamed "intruder" to "snoop" throughout the UI and code to match what the app
   actually defends against.
