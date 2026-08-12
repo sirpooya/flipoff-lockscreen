@@ -4,7 +4,7 @@ import ServiceManagement
 import Carbon
 
 private let buyMeACoffeeURL = URL(string: "https://buymeacoffee.com/sirpooya")!
-private let repoURL = URL(string: "https://github.com/sirpooya/osx-flipoff-lockscreen")!
+private let repoURL = URL(string: "https://github.com/sirpooya/flipoff-lockscreen")!
 /// Settings chrome uses the same orange as onboarding's buttons, not the brand
 /// teal — teal reads as a light green on filled controls (checkboxes, chips,
 /// tabs) and stays reserved for the lock-screen mockup, where it's the real

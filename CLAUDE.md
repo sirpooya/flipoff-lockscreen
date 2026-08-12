@@ -157,7 +157,7 @@ update path.
   build's `<item>`) and validates the XML before the workflow commits it.
 
 **Renaming the app resets the update path for every existing install.**
-`SUFeedURL` now points at `raw.githubusercontent.com/sirpooya/osx-flipoff-lockscreen`
+`SUFeedURL` now points at `raw.githubusercontent.com/sirpooya/flipoff-lockscreen`
 — the repo was renamed from `osx-bilakh-locksceen` (GitHub redirects the old URL, but
 don't rely on that indefinitely). Anyone who installed a build signed as
 `in.pooya.bilakh` is on a different bundle id than `in.pooya.flipoff` now ships;

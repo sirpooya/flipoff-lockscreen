@@ -694,7 +694,7 @@ footer a { color: var(--ink-dim); }
     <span class="nav-spacer"></span>
     <a class="nav-link" href="#how">How it works</a>
     <a class="nav-link" href="#install">Install</a>
-    <a class="nav-link" href="https://github.com/sirpooya/osx-flipoff-lockscreen">GitHub</a>
+    <a class="nav-link" href="https://github.com/sirpooya/flipoff-lockscreen">GitHub</a>
   </div>
 </nav>
 
@@ -711,7 +711,7 @@ footer a { color: var(--ink-dim); }
       </p>
 
       <div class="cta-row">
-        <a class="btn btn-primary" id="dl" href="https://github.com/sirpooya/osx-flipoff-lockscreen/releases/latest">
+        <a class="btn btn-primary" id="dl" href="https://github.com/sirpooya/flipoff-lockscreen/releases/latest">
           <!-- lucide/download -->
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -721,7 +721,7 @@ footer a { color: var(--ink-dim); }
           </svg>
           Download for Mac
         </a>
-        <a class="btn btn-ghost" href="https://github.com/sirpooya/osx-flipoff-lockscreen">
+        <a class="btn btn-ghost" href="https://github.com/sirpooya/flipoff-lockscreen">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
             <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.14.46.55.38A8 8 0 0 0 8 0Z"/>
           </svg>
@@ -996,8 +996,8 @@ xcodebuild -scheme FlipOff -configuration Debug build</pre>
   <div class="wrap foot-in">
     <span>🖕🏻 FlipOff — does exactly what it says.</span>
     <span class="nav-spacer"></span>
-    <a href="https://github.com/sirpooya/osx-flipoff-lockscreen">GitHub</a>
-    <a href="https://github.com/sirpooya/osx-flipoff-lockscreen/blob/main/LICENSE">MIT</a>
+    <a href="https://github.com/sirpooya/flipoff-lockscreen">GitHub</a>
+    <a href="https://github.com/sirpooya/flipoff-lockscreen/blob/main/LICENSE">MIT</a>
     <a href="https://github.com/sorkila/lockpaw">Forked from lockpaw</a>
   </div>
 </footer>
@@ -1222,7 +1222,7 @@ onScroll();
 /* Point the download button at the newest release asset, and label it with the
    version. Progressive enhancement only — the href already works as a link to
    the releases page if this fetch fails or the API rate-limits. */
-fetch('https://api.github.com/repos/sirpooya/osx-flipoff-lockscreen/releases/latest')
+fetch('https://api.github.com/repos/sirpooya/flipoff-lockscreen/releases/latest')
   .then(r => r.ok ? r.json() : Promise.reject(r.status))
   .then(rel => {
     const zip = (rel.assets || []).find(a => a.name.endsWith('.zip'));

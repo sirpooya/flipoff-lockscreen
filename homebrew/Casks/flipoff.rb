@@ -5,10 +5,10 @@ cask "flipoff" do
   # actually wired into a CI step that fills it in per release.
   sha256 :no_check
 
-  url "https://github.com/sirpooya/osx-flipoff-lockscreen/releases/download/v#{version}/FlipOff-v#{version}.zip"
+  url "https://github.com/sirpooya/flipoff-lockscreen/releases/download/v#{version}/FlipOff-v#{version}.zip"
   name "FlipOff"
   desc "Menu-bar lock that baits snoops into thinking your Mac isn't locked"
-  homepage "https://github.com/sirpooya/osx-flipoff-lockscreen"
+  homepage "https://github.com/sirpooya/flipoff-lockscreen"
 
   depends_on macos: :sonoma
 

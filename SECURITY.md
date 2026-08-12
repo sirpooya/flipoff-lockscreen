@@ -4,13 +4,13 @@ FlipOff is a screen guard — it blocks input and covers your displays, but it i
 
 ## Supported versions
 
-Only the latest release receives security fixes. Update via Sparkle (Settings → check for updates) or [GitHub Releases](https://github.com/sirpooya/osx-flipoff-lockscreen/releases).
+Only the latest release receives security fixes. Update via Sparkle (Settings → check for updates) or [GitHub Releases](https://github.com/sirpooya/flipoff-lockscreen/releases).
 
 ## Reporting a vulnerability
 
 Please **do not** open a public issue for security problems.
 
-Use [GitHub private vulnerability reporting](https://github.com/sirpooya/osx-flipoff-lockscreen/security/advisories/new) — it goes straight to the maintainer and stays private until a fix ships.
+Use [GitHub private vulnerability reporting](https://github.com/sirpooya/flipoff-lockscreen/security/advisories/new) — it goes straight to the maintainer and stays private until a fix ships.
 
 You can expect an initial response within a few days. If the report is valid, a fix will be released as soon as practical and you'll be credited in the release notes (unless you prefer otherwise).
 
