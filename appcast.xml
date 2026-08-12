@@ -6,6 +6,27 @@
         <description>Most recent changes to Bilakh.</description>
         <language>en</language>
         <item>
+            <title>1.3.0</title>
+            <pubDate>Wed, 12 Aug 2026 14:16:33 +0000</pubDate>
+            <sparkle:version>22</sparkle:version>
+            <sparkle:shortVersionString>1.3.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+## What's Changed
+* chore: bump version to 1.3.0 by @sirpooya in https://github.com/sirpooya/flipoff-lockscreen/pull/2
+
+## New Contributors
+* @sirpooya made their first contribution in https://github.com/sirpooya/flipoff-lockscreen/pull/2
+
+**Full Changelog**: https://github.com/sirpooya/flipoff-lockscreen/compare/v1.2.7...v1.3.0
+            ]]></description>
+            <enclosure
+                url="https://github.com/sirpooya/flipoff-lockscreen/releases/download/v1.3.0/FlipOff-v1.3.0.zip"
+                length="4077448"
+                type="application/octet-stream"
+                sparkle:edSignature="mBtH+uJgp7JzLTgI4SsCWhj7Yn9vkcab0WeccuepR1JTkcHUhsWyJDfhMx7B5XR9LJurXA8WioE0uBk2p5Z5Ag==" />
+        </item>
+        <item>
             <title>1.2.7</title>
             <pubDate>Tue, 11 Aug 2026 20:18:15 +0000</pubDate>
             <sparkle:version>21</sparkle:version>
