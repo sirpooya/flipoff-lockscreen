@@ -30,7 +30,7 @@ enum BackdropMode: String, CaseIterable, Identifiable {
     var subtitle: String {
         switch self {
         case .frozen: return "A screenshot, taken as the lock goes up. Needs Screen Recording."
-        case .live: return "The real desktop, still moving. Nothing behind is clickable."
+        case .live: return "The real desktop, still moving — nothing behind is clickable."
         }
     }
 
