@@ -1,7 +1,7 @@
 import LocalAuthentication
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "Authenticator")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "Authenticator")
 
 @MainActor
 class Authenticator {
@@ -20,7 +20,7 @@ class Authenticator {
     }
 
     /// Authenticate with Touch ID, with password fallback via system dialog.
-    func authenticate(reason: String = "Unlock Bilakh") async -> Bool {
+    func authenticate(reason: String = "Unlock FlipOff") async -> Bool {
         cancelPending()
 
         let context = LAContext()
@@ -85,7 +85,7 @@ class Authenticator {
     /// goes through `authenticateWithPassword()` on an explicit user action.
     func armEmbeddedBiometrics(
         _ context: LAContext,
-        reason: String = "Unlock Bilakh"
+        reason: String = "Unlock FlipOff"
     ) async -> Bool {
         await Task.detached { [context] in
             do {
@@ -104,7 +104,7 @@ class Authenticator {
     }
 
     /// Authenticate with macOS password (system dialog, user can click "Use Password").
-    func authenticateWithPassword(reason: String = "Enter your password to unlock Bilakh") async -> Bool {
+    func authenticateWithPassword(reason: String = "Enter your password to unlock FlipOff") async -> Bool {
         cancelPending()
 
         let context = LAContext()

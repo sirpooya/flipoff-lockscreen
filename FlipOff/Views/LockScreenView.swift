@@ -65,7 +65,7 @@ struct LockScreenView: View {
                                     .frame(width: mascotSize, height: mascotSize)
                                     .scaleEffect(successScale)
                                     .opacity(2.0 - Double(successScale))
-                                    .shadow(color: Color("BilakhTeal").opacity(0.3), radius: 50, y: 0)
+                                    .shadow(color: Color("FlipOffTeal").opacity(0.3), radius: 50, y: 0)
                             } else {
                                 // No teal glow behind the mascot — it used to carry a
                                 // breathing teal shadow and a teal pool underneath.
@@ -99,8 +99,8 @@ struct LockScreenView: View {
                                 Text(error)
                                     .font(.lockBody(compact: compact))
                                     .fontWeight(.medium)
-                                    .foregroundStyle(Color("BilakhError"))
-                                    .shadow(color: Color("BilakhError").opacity(0.15), radius: 8)
+                                    .foregroundStyle(Color("FlipOffError"))
+                                    .shadow(color: Color("FlipOffError").opacity(0.15), radius: 8)
                             } else if showMessage {
                                 // Big and white with a bold outline, not the quiet
                                 // small white body type the other states use — this
@@ -136,7 +136,7 @@ struct LockScreenView: View {
                         if controller.agentAttention && !controller.unlockSucceeded {
                             HStack(spacing: 6) {
                                 Circle()
-                                    .fill(Color("BilakhTeal"))
+                                    .fill(Color("FlipOffTeal"))
                                     .frame(width: 5, height: 5)
                                     .opacity(0.55 + breathe * 0.3)
                                 Text("Your agent needs you")
@@ -161,7 +161,7 @@ struct LockScreenView: View {
                                 ProgressView()
                                     .progressViewStyle(.circular)
                                     .scaleEffect(1.2)
-                                    .tint(Color("BilakhTeal"))
+                                    .tint(Color("FlipOffTeal"))
                                 VStack(spacing: 4) {
                                     Text("Use Touch ID or enter your Mac password")
                                         .font(.lockCaption)
@@ -383,7 +383,7 @@ struct LockScreenView: View {
                 ).ignoresSafeArea()
 
                 RadialGradient(
-                    colors: [Color("BilakhTeal").opacity(0.015 + breathe * 0.005), .clear],
+                    colors: [Color("FlipOffTeal").opacity(0.015 + breathe * 0.005), .clear],
                     center: .bottom, startRadius: 0, endRadius: 500
                 ).ignoresSafeArea().allowsHitTesting(false)
 
@@ -397,8 +397,8 @@ struct LockScreenView: View {
                 // stop-to-clear ramp washed the brand green toward pale cyan.
                 RadialGradient(
                     stops: [
-                        .init(color: Color("BilakhTeal").opacity(0.30 * pingGlow), location: 0),
-                        .init(color: Color("BilakhTeal").opacity(0.14 * pingGlow), location: 0.45),
+                        .init(color: Color("FlipOffTeal").opacity(0.30 * pingGlow), location: 0),
+                        .init(color: Color("FlipOffTeal").opacity(0.14 * pingGlow), location: 0.45),
                         .init(color: .clear, location: 1)
                     ],
                     center: .center, startRadius: 0,
@@ -414,13 +414,13 @@ struct LockScreenView: View {
     private func colorPools(geo: GeometryProxy) -> some View {
         ZStack {
             Circle()
-                .fill(RadialGradient(colors: [Color("BilakhTeal").opacity(0.04 + breathe * 0.04), .clear], center: .center, startRadius: 0, endRadius: 300 + breathe * 40))
+                .fill(RadialGradient(colors: [Color("FlipOffTeal").opacity(0.04 + breathe * 0.04), .clear], center: .center, startRadius: 0, endRadius: 300 + breathe * 40))
                 .frame(width: 600, height: 600)
                 .position(x: geo.size.width * 0.35 + drift * 10, y: geo.size.height * 0.3 + breathe * 8)
                 .blur(radius: 80)
 
             Circle()
-                .fill(RadialGradient(colors: [Color("BilakhAmber").opacity(0.02 + drift * 0.025), .clear], center: .center, startRadius: 0, endRadius: 250 + drift * 30))
+                .fill(RadialGradient(colors: [Color("FlipOffAmber").opacity(0.02 + drift * 0.025), .clear], center: .center, startRadius: 0, endRadius: 250 + drift * 30))
                 .frame(width: 500, height: 500)
                 .position(x: geo.size.width * 0.65 - drift * 8, y: geo.size.height * 0.65 - breathe * 6)
                 .blur(radius: 60)

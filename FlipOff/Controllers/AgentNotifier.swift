@@ -2,9 +2,9 @@ import Foundation
 import UserNotifications
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "AgentNotifier")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "AgentNotifier")
 
-/// Posts a local macOS notification when an AI agent pings Bilakh.
+/// Posts a local macOS notification when an AI agent pings FlipOff.
 /// Notification permission is requested lazily on first use, so onboarding stays
 /// unchanged — if the user declines, the lock-screen glow still fires silently.
 final class AgentNotifier: NSObject, UNUserNotificationCenterDelegate {
@@ -14,12 +14,12 @@ final class AgentNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     private override init() {
         super.init()
-        // Without a delegate that opts in, macOS suppresses banners while Bilakh is
+        // Without a delegate that opts in, macOS suppresses banners while FlipOff is
         // frontmost (e.g. the Settings test button, or while the lock overlay is up).
         center.delegate = self
     }
 
-    /// Present banners (and sound) even when Bilakh is the foreground app.
+    /// Present banners (and sound) even when FlipOff is the foreground app.
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -53,7 +53,7 @@ final class AgentNotifier: NSObject, UNUserNotificationCenterDelegate {
 
     private func post(withSound: Bool) {
         let content = UNMutableNotificationContent()
-        content.title = "Bilakh"
+        content.title = "FlipOff"
         content.body = "Your agent needs you."
         content.sound = withSound ? .default : nil
 

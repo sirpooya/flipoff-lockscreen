@@ -3,13 +3,13 @@ import Sparkle
 import SwiftUI
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "Update")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "Update")
 
 /// Sparkle wrapper. Owns the one `SPUStandardUpdaterController` for the process and
 /// publishes `canCheckForUpdates` so the menu item can disable itself while a check
 /// is already running.
 ///
-/// Two Bilakh-specific behaviours live in the delegate below:
+/// Two FlipOff-specific behaviours live in the delegate below:
 ///
 /// - **Never interrupt a lock.** Sparkle would otherwise be free to raise its
 ///   "update available" sheet while the shield is up. The shield sits at
@@ -65,9 +65,9 @@ extension UpdateController: SPUUpdaterDelegate {
         guard !locked else {
             logger.info("Suppressing update check — screen is locked")
             throw NSError(
-                domain: "in.pooya.bilakh.update",
+                domain: "in.pooya.flipoff.update",
                 code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Bilakh doesn't check for updates while the screen is locked."]
+                userInfo: [NSLocalizedDescriptionKey: "FlipOff doesn't check for updates while the screen is locked."]
             )
         }
     }

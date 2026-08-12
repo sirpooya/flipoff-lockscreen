@@ -3,7 +3,7 @@ import AppKit
 import CoreImage
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "CameraCapturer")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "CameraCapturer")
 
 /// Grabs a single silent snapshot from the built-in camera and saves it to
 /// ~/Downloads. Used only when someone touches the locked machine — never on
@@ -23,11 +23,11 @@ enum CameraCapturer {
     private static let videoOutput = AVCaptureVideoDataOutput()
     private static let frameGrabber = FrameGrabber()
     private static var isConfigured = false
-    private static let queue = DispatchQueue(label: "in.pooya.bilakh.camera")
+    private static let queue = DispatchQueue(label: "in.pooya.flipoff.camera")
     /// Frames must be delivered on their own queue: `queue` blocks in
     /// `Thread.sleep` while waiting for them, so sharing it would deadlock the
     /// delegate and no frame would ever arrive.
-    private static let sampleQueue = DispatchQueue(label: "in.pooya.bilakh.camera.frames")
+    private static let sampleQueue = DispatchQueue(label: "in.pooya.flipoff.camera.frames")
     private static let ciContext = CIContext()
 
     static func captureAndSaveOnFailedUnlock() {
@@ -141,7 +141,7 @@ enum CameraCapturer {
 
         let fileStamp = DateFormatter()
         fileStamp.dateFormat = "yyyy-MM-dd HH.mm.ss"
-        let imageURL = downloads.appendingPathComponent("Bilakh Intruder \(fileStamp.string(from: Date())).jpg")
+        let imageURL = downloads.appendingPathComponent("Mugshot \(fileStamp.string(from: Date())).jpg")
 
         let rep = NSBitmapImageRep(cgImage: image)
         guard let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else {

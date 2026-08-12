@@ -56,7 +56,7 @@ struct OnboardingView: View {
                 HStack(spacing: 8) {
                     ForEach(0..<totalSteps, id: \.self) { i in
                         Circle()
-                            .fill(i == step ? Color("BilakhAmber") : .gray.opacity(0.3))
+                            .fill(i == step ? Color("FlipOffAmber") : .gray.opacity(0.3))
                             .frame(width: 6, height: 6)
                     }
                 }
@@ -74,12 +74,12 @@ struct OnboardingView: View {
                         } label: {
                             Text(buttonLabel)
                                 .font(.system(size: 14, weight: .medium))
-                                .foregroundStyle(Color("BilakhAmber"))
+                                .foregroundStyle(Color("FlipOffAmber"))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 8)
                                 .background(
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(Color("BilakhAmber").opacity(0.15))
+                                        .fill(Color("FlipOffAmber").opacity(0.15))
                                 )
                         }
                         .buttonStyle(.plain)
@@ -95,7 +95,7 @@ struct OnboardingView: View {
                         }
                         .controlSize(.large)
                         .buttonStyle(.bordered)
-                        .tint(Color("BilakhAmber"))
+                        .tint(Color("FlipOffAmber"))
                         .disabled(!canAdvance)
                     }
                 }
@@ -138,7 +138,7 @@ struct OnboardingView: View {
                 if step == 2 { startPermissionPolling() }
             } else {
                 UserDefaults.standard.set(true, forKey: "hasCompletedOnboarding")
-                NotificationCenter.default.post(name: .bilakhHotkeyPreferenceChanged, object: nil)
+                NotificationCenter.default.post(name: .flipOffHotkeyPreferenceChanged, object: nil)
                 hasCompletedOnboarding = true
                 // Open Settings immediately — this activates the event pipeline
                 // so the global hotkey works without needing to click the menu bar.
@@ -154,10 +154,10 @@ struct OnboardingView: View {
             mascotHero(size: 96)
 
             VStack(spacing: 8) {
-                Text("Welcome to Bilakh")
+                Text("Welcome to FlipOff")
                     .font(.title2.weight(.semibold))
 
-                Text("Keeps intruders out\nwhile you step away.")
+                Text("Keeps snoops out\nwhile you step away.")
                     .font(.body)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
@@ -170,13 +170,13 @@ struct OnboardingView: View {
     private func mascotHero(size: CGFloat) -> some View {
         ZStack {
             Ellipse()
-                .fill(Color("BilakhAmber").opacity(0.05))
+                .fill(Color("FlipOffAmber").opacity(0.05))
                 .frame(width: size * 0.9, height: size * 0.25)
                 .blur(radius: 18)
                 .offset(y: size * 0.5)
 
             mascotImage(size: size)
-                .shadow(color: Color("BilakhAmber").opacity(0.18), radius: 24, y: 8)
+                .shadow(color: Color("FlipOffAmber").opacity(0.18), radius: 24, y: 8)
                 .scaleEffect(mascotBreath ? 1.03 : 1.0)
                 .offset(y: mascotBreath ? -3 : 0)
         }
@@ -201,7 +201,7 @@ struct OnboardingView: View {
         VStack(spacing: 20) {
             Image(systemName: "keyboard")
                 .font(.system(size: 36, weight: .light))
-                .foregroundStyle(Color("BilakhAmber"))
+                .foregroundStyle(Color("FlipOffAmber"))
 
             VStack(spacing: 8) {
                 Text("Set your hotkey")
@@ -220,23 +220,23 @@ struct OnboardingView: View {
                     if isRecording {
                         Text("Press your shortcut…")
                             .font(.system(size: 15, weight: .medium))
-                            .foregroundStyle(Color("BilakhAmber").opacity(0.7))
+                            .foregroundStyle(Color("FlipOffAmber").opacity(0.7))
                     } else {
                         Text(recordedKeyDisplay)
                             .font(.system(size: 18, weight: .light, design: .monospaced))
                             .tracking(1)
-                            .foregroundStyle(Color("BilakhAmber"))
+                            .foregroundStyle(Color("FlipOffAmber"))
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(Color("BilakhAmber").opacity(isRecording ? 0.15 : 0.08))
+                        .fill(Color("FlipOffAmber").opacity(isRecording ? 0.15 : 0.08))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .strokeBorder(Color("BilakhAmber").opacity(isRecording ? 0.4 : 0.15), lineWidth: 1)
+                        .strokeBorder(Color("FlipOffAmber").opacity(isRecording ? 0.4 : 0.15), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)
@@ -244,7 +244,7 @@ struct OnboardingView: View {
             if let conflict = hotkeyConflict {
                 Text(conflict)
                     .font(.caption)
-                    .foregroundStyle(Color("BilakhError"))
+                    .foregroundStyle(Color("FlipOffError"))
             } else if isRecording {
                 Text("Press any modifier + key")
                     .font(.caption)
@@ -259,7 +259,7 @@ struct OnboardingView: View {
     /// Only Accessibility is required to advance — it's the one grant a lock can't
     /// work without. Screen Recording is optional because the default Live backdrop
     /// shows the real desktop and captures nothing; it's only needed if you switch
-    /// to the frozen screenshot. Camera is optional too (intruder photo).
+    /// to the frozen screenshot. Camera is optional too (snoop photo).
     private var allRequiredGranted: Bool { accessibilityGranted }
 
     private var permissionsStep: some View {
@@ -268,12 +268,12 @@ struct OnboardingView: View {
                 if allRequiredGranted {
                     Image(systemName: "checkmark.shield.fill")
                         .font(.system(size: 36, weight: .light))
-                        .foregroundStyle(Color("BilakhAmber"))
+                        .foregroundStyle(Color("FlipOffAmber"))
                         .transition(.scale.combined(with: .opacity))
                 } else {
                     Image(systemName: "checkmark.shield")
                         .font(.system(size: 36, weight: .light))
-                        .foregroundStyle(Color("BilakhAmber"))
+                        .foregroundStyle(Color("FlipOffAmber"))
                         .transition(.scale.combined(with: .opacity))
                 }
             }
@@ -311,7 +311,7 @@ struct OnboardingView: View {
 
                 permissionRow(
                     title: "Camera",
-                    detail: "Snaps a photo of intruders.",
+                    detail: "Snaps a photo of snoops.",
                     granted: cameraGranted,
                     optional: true,
                     onRequest: {
@@ -358,12 +358,12 @@ struct OnboardingView: View {
 
                 if granted {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color("BilakhAmber"))
+                        .foregroundStyle(Color("FlipOffAmber"))
                 } else {
                     Button("Grant", action: onRequest)
                         .controlSize(.regular)
                         .buttonStyle(.bordered)
-                        .tint(optional ? .secondary : Color("BilakhAmber"))
+                        .tint(optional ? .secondary : Color("FlipOffAmber"))
                 }
             }
         }
@@ -386,7 +386,7 @@ struct OnboardingView: View {
 
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(RadialGradient(
-                        colors: [Color("BilakhAmber").opacity(0.55 * pulse), .clear],
+                        colors: [Color("FlipOffAmber").opacity(0.55 * pulse), .clear],
                         center: .center, startRadius: 0, endRadius: 95))
                     .blendMode(.plusLighter)
 
@@ -401,7 +401,7 @@ struct OnboardingView: View {
             }
 
             VStack(spacing: 8) {
-                Text("Bilakh taps you")
+                Text("FlipOff taps you")
                     .font(.title2.weight(.semibold))
 
                 Text("Lock your screen and walk away. When Claude Code,\nCodex, or Gemini needs you, the screen glows.")
@@ -431,7 +431,7 @@ struct OnboardingView: View {
             )
 
             VStack(spacing: 8) {
-                Text("Bilakh lives in your menu bar")
+                Text("FlipOff lives in your menu bar")
                     .font(.title3.weight(.semibold))
 
                 Text("Click to lock or open Settings.\nUnlock with your hotkey or Touch ID.")
@@ -449,13 +449,13 @@ struct OnboardingView: View {
                     Text(recordedKeyDisplay)
                         .font(.system(size: 14, weight: .light, design: .monospaced))
                         .tracking(1)
-                        .foregroundStyle(Color("BilakhAmber"))
+                        .foregroundStyle(Color("FlipOffAmber"))
                         .frame(height: 18)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(Color("BilakhAmber").opacity(0.08))
+                                .fill(Color("FlipOffAmber").opacity(0.08))
                         )
 
                     Text("or")
@@ -464,13 +464,13 @@ struct OnboardingView: View {
 
                     Image(systemName: "touchid")
                         .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(Color("BilakhAmber"))
+                        .foregroundStyle(Color("FlipOffAmber"))
                         .frame(height: 18)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                                .fill(Color("BilakhAmber").opacity(0.08))
+                                .fill(Color("FlipOffAmber").opacity(0.08))
                         )
                 }
             }
@@ -516,7 +516,7 @@ struct OnboardingView: View {
             HotkeyConfig.saveKeyCode(Int(event.keyCode))
             HotkeyConfig.saveModifiers(carbonMods)
             HotkeyConfig.saveDisplay(recordedKeyDisplay)
-            // Don't post bilakhHotkeyPreferenceChanged here — Accessibility isn't
+            // Don't post flipOffHotkeyPreferenceChanged here — Accessibility isn't
             // granted yet during onboarding. The completion step posts it instead.
 
             return nil

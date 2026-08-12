@@ -1,5 +1,5 @@
 import XCTest
-@testable import Bilakh
+@testable import FlipOff
 
 final class LockStateTests: XCTestCase {
 

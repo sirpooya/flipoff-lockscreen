@@ -27,9 +27,9 @@ APPCAST = "appcast.xml"
 SKELETON = """<?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
-        <title>Bilakh</title>
+        <title>FlipOff</title>
         <link>{feed_url}</link>
-        <description>Most recent changes to Bilakh.</description>
+        <description>Most recent changes to FlipOff.</description>
         <language>en</language>
     </channel>
 </rss>
@@ -72,7 +72,7 @@ def main() -> int:
         f"{args.tag}/{args.zip_name}"
     )
 
-    notes = args.notes.strip() or f"Bilakh {args.short_version}"
+    notes = args.notes.strip() or f"FlipOff {args.short_version}"
     # A literal ]]> would close the CDATA block early and corrupt the feed.
     notes = notes.replace("]]>", "]]&gt;")
 

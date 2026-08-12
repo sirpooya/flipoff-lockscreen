@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "OverlayWindow")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "OverlayWindow")
 
 /// Borderless windows refuse key status by default; the primary overlay must be able
 /// to become key so the app can be activated while locked — cursor concealment
@@ -276,7 +276,7 @@ class OverlayWindowManager {
             object: nil,
             queue: .main
         ) { _ in
-            NotificationCenter.default.post(name: .bilakhSessionLost, object: nil)
+            NotificationCenter.default.post(name: .flipOffSessionLost, object: nil)
         }
     }
 

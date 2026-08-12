@@ -1,6 +1,6 @@
 import Foundation
 
-/// Pure decision for how Bilakh reacts to an agent ping, given the current lock
+/// Pure decision for how FlipOff reacts to an agent ping, given the current lock
 /// state and the user's sound preference. Kept free of UI and side effects so the
 /// branching logic can be unit-tested directly.
 struct PingDecision: Equatable {

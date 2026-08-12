@@ -57,12 +57,12 @@ struct MenuBarView: View {
                 .disabled(!updater.canCheckForUpdates)
             }
 
-            Button("Quit Bilakh") {
+            Button("Quit FlipOff") {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q")
         }
-        // .bilakhLock / .bilakhUnlock / .bilakhUnlockPassword are observed by
+        // .flipOffLock / .flipOffUnlock / .flipOffUnlockPassword are observed by
         // LockController, not here — a menu-bar popover only exists while it's open,
         // so handling them in this view meant Settings' "Lock Now" and the URL
         // scheme silently did nothing whenever the menu was closed.

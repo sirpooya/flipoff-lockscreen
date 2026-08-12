@@ -4,13 +4,13 @@ import ServiceManagement
 import Carbon
 
 private let buyMeACoffeeURL = URL(string: "https://buymeacoffee.com/sirpooya")!
-private let repoURL = URL(string: "https://github.com/sirpooya/osx-bilakh-locksceen")!
+private let repoURL = URL(string: "https://github.com/sirpooya/osx-flipoff-lockscreen")!
 /// Settings chrome uses the same orange as onboarding's buttons, not the brand
 /// teal — teal reads as a light green on filled controls (checkboxes, chips,
 /// tabs) and stays reserved for the lock-screen mockup, where it's the real
 /// product look.
-private let settingsAccentColor = Color("BilakhAmber")
-private let mascotGlowColor = Color("BilakhTeal")
+private let settingsAccentColor = Color("FlipOffAmber")
+private let mascotGlowColor = Color("FlipOffTeal")
 
 private enum SettingsSection: String, CaseIterable, Identifiable, Hashable {
     case lockScreen
@@ -228,7 +228,7 @@ struct SettingsView: View {
             SettingsPanel {
                 SettingsRow("Lock now", subtitle: "Start the lock screen immediately.") {
                     Button {
-                        NotificationCenter.default.post(name: .bilakhLock, object: nil)
+                        NotificationCenter.default.post(name: .flipOffLock, object: nil)
                     } label: {
                         Text("Lock Now")
                             .padding(.horizontal, 8)
@@ -384,7 +384,7 @@ struct SettingsView: View {
             if let conflict = hotkeyConflict {
                 Text(conflict)
                     .font(.caption)
-                    .foregroundStyle(Color("BilakhError"))
+                    .foregroundStyle(Color("FlipOffError"))
             }
 
             SettingsDivider()
@@ -395,11 +395,11 @@ struct SettingsView: View {
 
             SettingsDivider()
 
-            SettingsRow("Global hotkey", subtitle: "Keep the shortcut active while Bilakh is running.") {
+            SettingsRow("Global hotkey", subtitle: "Keep the shortcut active while FlipOff is running.") {
                 SettingsSwitch(isOn: $hotkeyEnabled)
                     .onChange(of: hotkeyEnabled) { _, enabled in
                         NotificationCenter.default.post(
-                            name: .bilakhHotkeyPreferenceChanged,
+                            name: .flipOffHotkeyPreferenceChanged,
                             object: nil,
                             userInfo: ["enabled": enabled]
                         )
@@ -417,17 +417,17 @@ struct SettingsView: View {
     }
 
     private var cliURL: URL? {
-        Bundle.main.sharedSupportURL?.appendingPathComponent("bilakh")
+        Bundle.main.sharedSupportURL?.appendingPathComponent("flipoff")
     }
 
-    /// Run the bundled `bilakh` CLI with the given arguments off the main thread,
+    /// Run the bundled `flipoff` CLI with the given arguments off the main thread,
     /// then record the outcome for the row identified by `mark`. A ⚠️ on stdout with
     /// exit 0 (e.g. Codex already has a foreign `notify`) is surfaced as a failure
     /// so the button doesn't claim success for a write that didn't happen.
     private func runAgentSetup(_ arguments: [String], mark: String, treatWarningAsFailure: Bool = true) {
         if case .running = agentSetupResults[mark] { return }
         guard let cli = cliURL, FileManager.default.isExecutableFile(atPath: cli.path) else {
-            agentSetupResults[mark] = .failure("The bundled bilakh tool is missing — reinstall Bilakh.")
+            agentSetupResults[mark] = .failure("The bundled flipoff tool is missing — reinstall FlipOff.")
             return
         }
         agentSetupResults[mark] = .running
@@ -546,16 +546,16 @@ struct SettingsView: View {
             }
         }
         switch tool {
-        case "codex": return "notify = [\"bilakh\", \"ping\"]"
-        case "gemini": return "Add a hook running `bilakh ping` in ~/.gemini/settings.json — see https://geminicli.com/docs/hooks/"
-        default: return "\"hooks\": {\n  \"Notification\": [{ \"hooks\": [{ \"type\": \"command\", \"command\": \"bilakh ping\" }] }],\n  \"Stop\": [{ \"hooks\": [{ \"type\": \"command\", \"command\": \"bilakh ping\" }] }]\n}"
+        case "codex": return "notify = [\"flipoff\", \"ping\"]"
+        case "gemini": return "Add a hook running `flipoff ping` in ~/.gemini/settings.json — see https://geminicli.com/docs/hooks/"
+        default: return "\"hooks\": {\n  \"Notification\": [{ \"hooks\": [{ \"type\": \"command\", \"command\": \"flipoff ping\" }] }],\n  \"Stop\": [{ \"hooks\": [{ \"type\": \"command\", \"command\": \"flipoff ping\" }] }]\n}"
         }
     }
 
     private var generalSettings: some View {
         VStack(alignment: .leading, spacing: 10) {
             SettingsPanel {
-                SettingsRow("Launch at login", subtitle: "Open Bilakh automatically when you sign in.") {
+                SettingsRow("Launch at login", subtitle: "Open FlipOff automatically when you sign in.") {
                     SettingsSwitch(isOn: $launchAtLogin)
                         .onChange(of: launchAtLogin) { _, enabled in
                             do {
@@ -626,7 +626,7 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                SettingsRow("Command-line tool", subtitle: "Optional — connecting an agent installs this automatically. Puts bilakh in ~/.local/bin for your own scripts.") {
+                SettingsRow("Command-line tool", subtitle: "Optional — connecting an agent installs this automatically. Puts flipoff in ~/.local/bin for your own scripts.") {
                     Button {
                         runAgentSetup(["install-cli"], mark: "cli", treatWarningAsFailure: false)
                     } label: {
@@ -727,7 +727,7 @@ struct SettingsView: View {
 
                     if !cameraGranted {
                         Button {
-                            // Only registers Bilakh in the Camera privacy pane once
+                            // Only registers FlipOff in the Camera privacy pane once
                             // this request actually resolves — opening System
                             // Settings before that finishes is why the app never
                             // showed up there. If it's already been decided (a past
@@ -759,7 +759,7 @@ struct SettingsView: View {
                         .accessibilityHidden(true)
 
                     VStack(alignment: .leading, spacing: 1) {
-                        Text("Bilakh")
+                        Text("FlipOff")
                             .font(.system(size: 14, weight: .semibold))
                         Text(appVersionText)
                             .font(.system(size: 11))
@@ -790,14 +790,14 @@ struct SettingsView: View {
 
                 SettingsDivider()
 
-                Text("Bilakh busts intruders with a photo and shields your screen from prying eyes. For real security, use your Mac's lock screen (Ctrl+Cmd+Q).")
+                Text("FlipOff busts snoops with a photo and shields your screen from prying eyes. For real security, use your Mac's lock screen (Ctrl+Cmd+Q).")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
 
                 SettingsDivider()
 
-                SettingsRow("Support Bilakh") {
+                SettingsRow("Support FlipOff") {
                     Button {
                         NSWorkspace.shared.open(buyMeACoffeeURL)
                     } label: {
@@ -844,7 +844,7 @@ struct SettingsView: View {
 
     private func configureSettingsWindow() {
         guard let window = NSApp.keyWindow else { return }
-        window.title = "Bilakh Settings"
+        window.title = "FlipOff Settings"
         window.minSize = NSSize(width: 580, height: 560)
 
         let targetSize = NSSize(width: 600, height: 620)
@@ -902,7 +902,7 @@ struct SettingsView: View {
             hotkeyConflict = nil
             stopRecording()
 
-            NotificationCenter.default.post(name: .bilakhHotkeyPreferenceChanged, object: nil)
+            NotificationCenter.default.post(name: .flipOffHotkeyPreferenceChanged, object: nil)
 
             return nil
         }
@@ -944,7 +944,7 @@ private struct SettingsTabBar: View {
     @Binding var selection: SettingsSection
 
     var body: some View {
-        // The window titlebar already says "Bilakh Settings" — no in-content title.
+        // The window titlebar already says "FlipOff Settings" — no in-content title.
         HStack(alignment: .center, spacing: 6) {
             ForEach(SettingsSection.allCases) { section in
                 SettingsTabButton(

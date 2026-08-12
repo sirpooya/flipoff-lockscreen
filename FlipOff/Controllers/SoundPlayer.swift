@@ -1,7 +1,7 @@
 import AVFoundation
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "SoundPlayer")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "SoundPlayer")
 
 /// Plays the user's chosen lock/unlock sound effect.
 ///

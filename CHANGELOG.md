@@ -1,5 +1,17 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Renamed the app from Bilakh to **FlipOff** — new bundle id (`in.pooya.flipoff`),
+  new repo (`osx-flipoff-lockscreen`), new Sparkle feed. Existing Bilakh installs do
+  not auto-migrate to this build; see CLAUDE.md's Auto-update section.
+- Renamed "intruder" to "snoop" throughout the UI and code to match what the app
+  actually defends against.
+- Failed-unlock photos now save as `Mugshot <timestamp>.jpg` (was `Bilakh Snoop
+  <timestamp>.jpg`).
+
 ## [1.1.1] - 2026-06-10
 
 ### Added

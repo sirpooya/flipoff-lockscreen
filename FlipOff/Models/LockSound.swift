@@ -11,10 +11,16 @@ enum LockSound: String, CaseIterable, Identifiable {
     case bazinga
     case muaHaHa
     case alert
-    case intruderAlert
+    case snoopAlert
 
     static let storageKey = "lockSound"
     static let defaultValue = none.rawValue
+
+    /// Raw values are what sit in `UserDefaults`, so renaming a case orphans the
+    /// choice of anyone who had picked it — `resolved(from:)` would fall through to
+    /// `.none` and their sound would silently switch off on update. Old raw value →
+    /// current case.
+    private static let renamed: [String: LockSound] = ["intruderAlert": .snoopAlert]
 
     var id: String { rawValue }
 
@@ -27,7 +33,7 @@ enum LockSound: String, CaseIterable, Identifiable {
         case .bazinga: return "Bazinga"
         case .muaHaHa: return "Mua Ha Ha"
         case .alert: return "Alert"
-        case .intruderAlert: return "Intruder Alert"
+        case .snoopAlert: return "Snoop Alert"
         }
     }
 
@@ -41,11 +47,11 @@ enum LockSound: String, CaseIterable, Identifiable {
         case .bazinga: return "bazinga"
         case .muaHaHa: return "mua-ha-ha"
         case .alert: return "alert"
-        case .intruderAlert: return "intruder-alert"
+        case .snoopAlert: return "snoop-alert"
         }
     }
 
     static func resolved(from rawValue: String) -> LockSound {
-        LockSound(rawValue: rawValue) ?? .none
+        LockSound(rawValue: rawValue) ?? renamed[rawValue] ?? .none
     }
 }

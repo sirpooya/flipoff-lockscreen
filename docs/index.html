@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FlipOff — protect your Mac from nosy snoops</title>
+<meta name="description" content="A menu-bar lock for macOS that baits snoops into thinking your Mac isn't locked. One wrong touch and they get your message, your sound, and a mugshot taken.">
+<meta property="og:title" content="FlipOff — protect your Mac from nosy snoops">
+<meta property="og:description" content="Baits snoops into thinking your Mac isn't locked. One wrong touch and they get your message, your sound, and a mugshot taken.">
+<meta property="og:type" content="website">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖕</text></svg>">
+
+<style>
+/* ============================================================
+   Tokens
+   ============================================================ */
+/* Light is the base palette; dark is layered on as an override below (system
+   preference, then an explicit toggle winning over that). The accents stay fixed
+   across both — only surfaces and ink invert. */
+:root {
+  --amber:  #d97a1f;
+  --teal:   #00947a;
+  --violet: #6b34d8;
+
+  --bg:      #f7f6f3;
+  --bg-soft: #efeee9;
+  --card:    rgba(20,18,14,.03);
+  --line:    rgba(20,18,14,.10);
+  --line-2:  rgba(20,18,14,.16);
+
+  --ink:     #18160f;
+  --ink-dim: #5c584d;
+  --ink-mute:#8a8577;
+  --nav-bg:  rgba(247,246,243,.72);
+
+  /* Demo-only: the shield's own dark palette, fixed regardless of page theme —
+     the app's lock screen is always dark, so the mock stays dark to match it
+     instead of flattening to the ambient theme. */
+  --demo-amber:  #ff9f43;
+  --demo-teal:   #00d4aa;
+
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+
+  /* One spring for the whole page, so motion reads as one system. */
+  --spring: cubic-bezier(.34, 1.46, .64, 1);
+  --ease:   cubic-bezier(.4, 0, .2, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --amber:  #ff9f43;
+    --teal:   #00d4aa;
+
+    --bg:      #0b0b0f;
+    --bg-soft: #12121a;
+    --card:    rgba(255,255,255,.035);
+    --line:    rgba(255,255,255,.09);
+    --line-2:  rgba(255,255,255,.14);
+
+    --ink:     #f2f2f5;
+    --ink-dim: #a2a2ae;
+    --ink-mute:#6f6f7c;
+    --nav-bg:  rgba(11,11,15,.72);
+  }
+}
+:root[data-theme="dark"] {
+  --amber:  #ff9f43;
+  --teal:   #00d4aa;
+
+  --bg:      #0b0b0f;
+  --bg-soft: #12121a;
+  --card:    rgba(255,255,255,.035);
+  --line:    rgba(255,255,255,.09);
+  --line-2:  rgba(255,255,255,.14);
+
+  --ink:     #f2f2f5;
+  --ink-dim: #a2a2ae;
+  --ink-mute:#6f6f7c;
+  --nav-bg:  rgba(11,11,15,.72);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a { color: var(--amber); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+.wrap { width: 100%; max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+/* ============================================================
+   Nav
+   ============================================================ */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: var(--nav-bg);
+  border-bottom: 1px solid transparent;
+  transition: border-color .3s var(--ease);
+}
+.nav.scrolled { border-bottom-color: var(--line); }
+.nav-in {
+  display: flex; align-items: center; gap: 16px;
+  height: 58px;
+}
+.brand {
+  display: flex; align-items: center; gap: 9px;
+  font-weight: 650; font-size: 16px; letter-spacing: -.01em;
+  color: var(--ink);
+}
+.brand:hover { text-decoration: none; }
+.brand-mark { font-size: 18px; line-height: 1; }
+.nav-spacer { flex: 1; }
+.nav a.nav-link { color: var(--ink-dim); font-size: 14.5px; }
+.nav a.nav-link:hover { color: var(--ink); text-decoration: none; }
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero { padding: 76px 0 8px; text-align: center; position: relative; }
+
+/* Ambient wash — the app's own two accent colors, well below the fold's contrast
+   floor so text over it stays readable. */
+.hero::before {
+  content: "";
+  position: absolute; inset: -20% -30% 30%;
+  background:
+    radial-gradient(46% 44% at 28% 22%, color-mix(in srgb, var(--violet) 34%, transparent), transparent 70%),
+    radial-gradient(40% 40% at 76% 12%, color-mix(in srgb, var(--teal) 15%, transparent), transparent 70%);
+  filter: blur(30px);
+  opacity: .5;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 550; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--ink-dim);
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 5px 13px;
+  margin-bottom: 26px;
+}
+.eyebrow b { color: var(--amber); font-weight: 600; }
+
+h1 {
+  font-size: clamp(2.1rem, 6.4vw, 3.55rem);
+  line-height: 1.05;
+  letter-spacing: -.032em;
+  font-weight: 680;
+  margin: 0 0 18px;
+}
+h1 .flip {
+  background: linear-gradient(96deg, var(--amber), #ffce7a);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+
+.lede {
+  max-width: 590px; margin: 0 auto 34px;
+  font-size: clamp(1rem, 2.3vw, 1.16rem);
+  color: var(--ink-dim);
+  line-height: 1.62;
+}
+.lede strong { color: var(--ink); font-weight: 600; }
+
+.cta-row {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  font: inherit; font-size: 15px; font-weight: 580;
+  padding: 12px 22px; border-radius: 11px;
+  border: 1px solid transparent;
+  transition: transform .18s var(--spring), background .2s var(--ease), border-color .2s var(--ease);
+}
+.btn:hover { text-decoration: none; transform: translateY(-1.5px); }
+.btn:active { transform: translateY(0); }
+.btn-primary {
+  background: var(--amber); color: #241300;
+  box-shadow: 0 6px 22px -6px color-mix(in srgb, var(--amber) 60%, transparent);
+}
+.btn-primary:hover { background: #ffb063; }
+.btn-ghost { border-color: var(--line-2); color: var(--ink); }
+.btn-ghost:hover { background: var(--card); border-color: rgba(255,255,255,.24); }
+
+.req { font-size: 13px; color: var(--ink-mute); margin: 0 0 44px; }
+.req code { font-family: var(--mono); font-size: 12.4px; color: var(--ink-dim); }
+
+/* ============================================================
+   Demo — the onboarding animation, ported
+   ------------------------------------------------------------
+   Base geometry is the Swift view's own 336x196pt coordinate space, so every
+   offset below is the number from OnboardingLockDemo.swift rather than a
+   re-eyeballed one. The whole thing is then scaled as a unit.
+   ============================================================ */
+.stage {
+  display: flex; justify-content: center;
+  margin-bottom: 8px;
+}
+.stage-in {
+  /* --s is the only knob: the frame reserves scaled space, the demo scales into it. */
+  --s: 1.85;
+  width: calc(336px * var(--s));
+  height: calc(196px * var(--s));
+  max-width: 100%;
+  position: relative;
+}
+@media (max-width: 720px) { .stage-in { --s: 1.25; } }
+@media (max-width: 460px) { .stage-in { --s: .92; } }
+
+.demo {
+  position: absolute; top: 0; left: 50%;
+  width: 336px; height: 196px;
+  transform: translateX(-50%) scale(var(--s));
+  transform-origin: top center;
+  border-radius: 14px;
+  overflow: hidden;
+  color-scheme: dark;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,.10) inset,
+    0 22px 50px -18px rgba(0,0,0,.75);
+}
+
+/* --- camera layer: everything belonging to the desktop, pushed in together --- */
+.cam {
+  position: absolute; inset: 0;
+  transform-origin: 50% 82%;
+  transition: transform .7s var(--spring);
+}
+.demo.zoomed .cam { transform: scale(1.42); }
+
+/* --- desktop ---
+   The SwiftUI original draws the user's real wallpaper and nothing on top of it —
+   no fake windows, deliberately. On the web there is no real wallpaper to read,
+   and a bare gradient reads as "empty screen", which is exactly the claim the
+   headline needs to disprove. So the web port adds two suggestions of window
+   chrome: enough for the frozen desktop to look like work in progress, too faint
+   to pretend to be a real app. */
+.desktop {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(56% 50% at 20% 16%, #8b56ec 0%, transparent 60%),
+    radial-gradient(46% 44% at 86% 24%, #2694b4 0%, transparent 62%),
+    radial-gradient(66% 58% at 46% 110%, #3a1f74 0%, transparent 68%),
+    linear-gradient(158deg, #363a58, #191c28 60%, #0d0e15);
+}
+
+.win {
+  position: absolute;
+  border-radius: 6px;
+  background: rgba(16,17,24,.55);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.07) inset, 0 8px 18px -6px rgba(0,0,0,.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  overflow: hidden;
+}
+/* Title bar: three dots and a couple of text-line stubs, at the scale where
+   anything more legible would just be noise. */
+.win::before {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0; height: 9px;
+  background: rgba(255,255,255,.06);
+  box-shadow: 0 1px 0 rgba(255,255,255,.05);
+}
+.win::after {
+  content: "";
+  position: absolute; top: 3.5px; left: 5px;
+  width: 2.5px; height: 2.5px; border-radius: 50%;
+  color: #ff5f57;
+  background: currentColor;
+  box-shadow: 4px 0 0 #febc2e, 8px 0 0 #28c840;
+}
+.win-a { left: 22px;  top: 46px; width: 132px; height: 92px; }
+.win-b { left: 128px; top: 82px; width: 158px; height: 96px; }
+.win-line {
+  position: absolute; height: 3px; border-radius: 2px;
+  background: rgba(255,255,255,.13);
+}
+
+/* --- menu bar --- */
+.menubar {
+  position: absolute; top: 0; left: 0; right: 0; height: 18px;
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 0;
+  padding-right: 10px;
+  background: rgba(255,255,255,.10);
+  color: rgba(255,255,255,.55);
+  font-size: 8px; font-weight: 500;
+}
+.menubar svg {
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.menubar svg .solid { fill: currentColor; stroke: none; }
+.mb-gap-8  { width: 8px;  flex: none; }
+.mb-gap-10 { width: 10px; flex: none; }
+.mb-slot   { width: 22px; flex: none; }   /* the icon draws on top, at iconCenter */
+.mb-clock  { width: 30px; flex: none; text-align: center; }
+
+/* --- the app's own menu-bar icon --- */
+.mb-icon {
+  position: absolute;
+  /* iconCenter = (width - 61, 9) */
+  left: 275px; top: 9px;
+  width: 22px; height: 16px;
+  margin: -8px 0 0 -11px;
+  display: grid; place-items: center;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--demo-amber) 14%, transparent);
+  font-size: 10px; line-height: 1;
+  transition: background .3s var(--ease), transform .26s var(--spring);
+}
+.demo.icon-lit .mb-icon { background: color-mix(in srgb, var(--demo-amber) 30%, transparent); }
+.demo[data-phase="click"] .mb-icon { transform: scale(.9); }
+
+/* --- click ripple ---
+   Restarted from JS by removing/re-adding .go with a forced reflow. This is the
+   web's whole answer to the Swift version's `arm()` dance: a CSS animation
+   restarts from its first keyframe, so there is no invisible resting state to
+   nudge off. */
+.ripple {
+  position: absolute; width: 20px; height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 1.2px solid var(--demo-amber);
+  border-radius: 50%;
+  opacity: 0;
+  transition: left .45s var(--ease), top .45s var(--ease);
+}
+/* White while locked: the amber ripples are the clicks that DO something; this
+   one is a poke the shield ignores. */
+.demo[data-phase="intrusion"] .ripple { border-color: #fff; }
+.ripple.go { animation: ripple .55s var(--ease) forwards; }
+@keyframes ripple {
+  from { transform: scale(.5);  opacity: .6; }
+  to   { transform: scale(2.1); opacity: 0; }
+}
+
+/* --- reveal scrim ---
+   Keyed to `.revealed`, NOT to `.locked`, and this is the single most important
+   thing the demo has to get right. LockScreenView's own comment: "Undimmed and
+   unblurred until revealed: the whole point is that the screen looks untouched, so
+   a scrim would give the lock away before anyone touches the machine. The dim
+   fades in with the mascot, where it earns its keep making the white text
+   readable." A demo that dims at lock advertises exactly the tell the app spends
+   its effort hiding.
+
+   Values are the app's shipped defaults — `Constants.Backdrop.defaultDim` 0.35 and
+   `defaultBlur` 0. No blur: in live mode there is no image to blur, and blurring
+   would freeze the motion that makes the mode worth having. */
+.veil {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.35);
+  opacity: 0;
+  transition: opacity .45s var(--ease);
+}
+.demo.revealed .veil { opacity: 1; }
+
+/* --- menu panel ---
+   A stand-in for the real MenuBarExtra menu: only the row being taught carries
+   text, the rest are bars. At this scale readable type everywhere is noise. */
+.menu {
+  position: absolute;
+  /* menuCenter = (iconCenter.x - 44, 47), panel is 112 wide */
+  left: 175px; top: 18px;
+  width: 112px;
+  padding: 4px;
+  border-radius: 8px;
+  background: rgba(41,41,46,.96);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.10) inset, 0 9px 18px -6px rgba(0,0,0,.55);
+  opacity: 0;
+  transform: scale(.9);
+  transform-origin: top right;
+  transition: opacity .3s var(--ease), transform .3s var(--spring);
+}
+.demo.menu-open .menu { opacity: 1; transform: scale(1); }
+
+.menu-row {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 6px; border-radius: 4px;
+  font-size: 8.5px; font-weight: 500;
+  color: rgba(255,255,255,.9);
+  transition: background .2s var(--ease), color .2s var(--ease);
+}
+.demo[data-phase="pick"] .menu-row {
+  background: var(--demo-amber);
+  color: rgba(0,0,0,.8);
+}
+.menu-bar-stub {
+  height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.18);
+  margin: 4px 6px;
+}
+
+/* --- pointer ---
+   `cursorarrow`'s tip is its top-left, so the sprite is offset to make the
+   coordinates below mean "the tip". */
+.cursor {
+  position: absolute;
+  /* Square box, square viewBox — a 14x18 frame on a 24x24 viewBox would stretch
+     the arrow. The tip of lucide/mouse-pointer-2 sits at about (4,4) of 24,
+     which is 2.7px in at this size; the margin makes `left/top` mean the tip. */
+  width: 16px; height: 16px;
+  margin: -3px 0 0 -3px;
+  opacity: 0;
+  transition:
+    left  .65s var(--ease),
+    top   .65s var(--ease),
+    opacity .3s var(--ease),
+    transform .26s var(--spring);
+  filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.55));
+}
+.demo.cursor-on .cursor { opacity: 1; }
+.demo.cursor-down .cursor { transform: scale(.85); }
+
+/* --- crisp layer: never transformed by the camera, so it survives the push
+   sharp. `scaleEffect` on an already-rasterised layer is what softens type;
+   keeping the mascot and hints out of .cam is the fix. --- */
+/* Mascot and message move as one group, the way LockScreenView keeps "mascot +
+   message + time as a tight cohesive group". The message is the `lockMessage`
+   default — it is the thing the headline promises a snoop receives, so a demo
+   without it undersells the product. */
+.gag {
+  position: absolute; left: 50%; top: 88px;   /* 0.45 * 196 */
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(.5);
+  transition: opacity .42s var(--ease), transform .42s var(--spring), top .7s var(--spring);
+  pointer-events: none;
+}
+.demo.revealed .gag { opacity: 1; transform: translate(-50%, -50%) scale(.72); }
+.demo.zoomed .gag { top: 67px; }             /* 0.34 * 196 */
+.demo.revealed.zoomed .gag { transform: translate(-50%, -50%) scale(1); }
+
+.mascot {
+  font-size: 46px; line-height: 1;
+  filter: drop-shadow(0 4px 10px rgba(0,0,0,.35));
+}
+.msg {
+  font-size: 13px; font-weight: 620; letter-spacing: -.01em;
+  color: #fff;
+  white-space: nowrap;
+  /* Softened, not dropped — v1.2.7 dialled this shadow back rather than removing
+     it, because the scrim alone can't guarantee contrast over a live desktop. */
+  text-shadow: 0 1px 6px rgba(0,0,0,.55);
+}
+
+.hints {
+  position: absolute; left: 0; right: 0; bottom: 16px;
+  display: flex; align-items: center; justify-content: center;
+  /* No `gap` — a zero-width hidden child would still get gap space on both sides
+     and push the lone glyph off-centre. Spacing lives on the children's margins,
+     which collapse to 0 along with their width. */
+  gap: 0;
+  opacity: 0;
+  transition: opacity .5s var(--ease);
+  pointer-events: none;
+}
+.demo.locked .hints { opacity: 1; }
+
+.chord { display: flex; gap: 4px; }
+.chord kbd {
+  font-family: var(--mono); font-size: 10px; font-weight: 500;
+  color: var(--demo-amber);
+  padding: 4px 6px; border-radius: 5px;
+  background: color-mix(in srgb, var(--demo-amber) 10%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--demo-amber) 16%, transparent) inset;
+  transition: background .2s var(--ease), box-shadow .2s var(--ease), transform .2s var(--spring);
+}
+.chord kbd.down {
+  background: color-mix(in srgb, var(--demo-amber) 32%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--demo-amber) 55%, transparent) inset;
+  transform: scale(.93);
+}
+.hint-or { font-size: 9px; color: rgba(255,255,255,.45); }
+
+/* The chord chips and "or" insert on .zoom, and that layout change is what slides
+   the Touch ID glyph over to make room — same as the SwiftUI version's conditional
+   HStack member.
+
+   They must leave the flow entirely when hidden, not merely go transparent: on the
+   bare shield the glyph is the row's only occupant and has to sit dead centre, the
+   way the real lock screen shows it. `max-width: 0` + `overflow: hidden` collapses
+   them to nothing while still being animatable — `display: none` would be correct
+   about layout but can't transition. */
+.chord, .hint-or {
+  opacity: 0;
+  max-width: 0;
+  margin-right: 0;
+  overflow: hidden;
+  transform: scale(.85);
+  transition:
+    opacity .4s var(--ease),
+    transform .4s var(--spring),
+    max-width .4s var(--spring),
+    margin-right .4s var(--spring);
+}
+.chord { transform-origin: right center; }
+
+.demo.hints-shown .chord,
+.demo.hints-shown .hint-or {
+  opacity: 1;
+  transform: scale(1);
+  margin-right: 7px;
+}
+.demo.hints-shown .chord   { max-width: 220px; }
+.demo.hints-shown .hint-or { max-width: 24px; }
+
+.touch {
+  position: relative;
+  display: grid; place-items: center;
+  width: 32px; height: 28px;
+  opacity: .5;
+  transform: scale(.6);
+  transition: opacity .4s var(--ease), transform .4s var(--spring);
+}
+.demo.zoomed .touch { opacity: 1; transform: scale(1); }
+.touch-glyph {
+  /* Padded inside the box: lucide's fingerprint strokes run to the edge of its
+     24-unit viewBox, so an unpadded glyph collides with its own rounded plate. */
+  width: 21px; height: 21px;
+  padding: 2.5px;
+  box-sizing: border-box;
+  color: var(--demo-amber);
+  border-radius: 5px;
+  transition: transform .25s var(--spring), background .3s var(--ease);
+}
+.demo.zoomed .touch-glyph {
+  background: color-mix(in srgb, var(--demo-amber) 10%, transparent);
+}
+.demo.touch-down .touch-glyph { transform: scale(.94); }
+.ring {
+  position: absolute;
+  width: 26px; height: 26px;
+  border: 1.2px solid var(--demo-amber);
+  border-radius: 50%;
+  opacity: 0;
+}
+.ring.go { animation: ring .85s var(--ease) forwards; }
+@keyframes ring {
+  from { transform: scale(.7);  opacity: .5; }
+  to   { transform: scale(2.2); opacity: 0; }
+}
+
+/* Caption under the demo, driven off the same phase attribute — one label at a
+   time, so the animation narrates itself without a voiceover. */
+.caption {
+  min-height: 22px;
+  margin: 26px 0 0;
+  font-size: 13.5px; color: var(--ink-mute);
+  text-align: center;
+}
+.caption-slot {
+  display: block;
+  opacity: 0;
+  transition: opacity .35s var(--ease);
+}
+.caption-slot.on { opacity: 1; }
+
+/* Motion-off: hold the frame that carries the headline's claim — the icon
+   sitting lit in the menu bar — and state the unlock routes as text instead. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .demo *, .demo { transition: none !important; animation: none !important; }
+  .btn:hover { transform: none; }
+}
+
+/* ============================================================
+   Sections
+   ============================================================ */
+section { padding: 78px 0; }
+.sec-head { max-width: 620px; margin-bottom: 40px; }
+h2 {
+  font-size: clamp(1.5rem, 3.6vw, 2.05rem);
+  line-height: 1.15; letter-spacing: -.024em; font-weight: 660;
+  margin: 0 0 12px;
+}
+.sec-head p { margin: 0; color: var(--ink-dim); font-size: 16.5px; }
+
+.rule { height: 1px; background: var(--line); border: 0; margin: 0; }
+
+.grid { display: grid; gap: 18px; grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 780px) { .grid { grid-template-columns: 1fr; } }
+
+.card {
+  padding: 24px 22px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+.card-ico {
+  width: 34px; height: 34px; border-radius: 9px;
+  display: grid; place-items: center;
+  margin-bottom: 15px;
+  background: color-mix(in srgb, var(--amber) 12%, transparent);
+  color: var(--amber);
+}
+/* Every icon on the page is stroke-only. Fill-with-a-hole paths need explicit
+   opposite winding to punch through, and a hand-authored one that gets it wrong
+   silently renders as a solid blob — stroke geometry has no such failure mode. */
+.card-ico svg {
+  width: 19px; height: 19px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.card h3 { margin: 0 0 7px; font-size: 16px; font-weight: 610; letter-spacing: -.01em; }
+.card p { margin: 0; font-size: 14.5px; color: var(--ink-dim); line-height: 1.58; }
+
+/* Honesty block — the README's own caveat, given its own weight rather than
+   buried in a footnote. */
+.honest {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  border-radius: 12px;
+  padding: 24px 26px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--amber) 6%, transparent), transparent 60%);
+}
+.honest h3 { margin: 0 0 9px; font-size: 17px; font-weight: 620; }
+.honest p { margin: 0; color: var(--ink-dim); font-size: 15.5px; }
+
+/* Steps */
+.steps { counter-reset: step; display: grid; gap: 2px; }
+.step {
+  display: grid; grid-template-columns: 34px 1fr; gap: 16px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
+}
+.step:last-child { border-bottom: 0; }
+.step::before {
+  counter-increment: step;
+  content: counter(step);
+  width: 26px; height: 26px; border-radius: 8px;
+  display: grid; place-items: center;
+  font-size: 12.5px; font-weight: 600; font-family: var(--mono);
+  color: var(--amber);
+  background: color-mix(in srgb, var(--amber) 11%, transparent);
+}
+.step h3 { margin: 3px 0 5px; font-size: 15.5px; font-weight: 600; }
+.step p { margin: 0; color: var(--ink-dim); font-size: 14.5px; }
+.step code, .inline-code {
+  font-family: var(--mono); font-size: 13px;
+  padding: 2px 6px; border-radius: 5px;
+  background: rgba(255,255,255,.07);
+  color: var(--ink);
+}
+
+pre {
+  margin: 0; padding: 18px 20px;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg-soft);
+  overflow-x: auto;
+  font-family: var(--mono); font-size: 13.2px; line-height: 1.7;
+  color: var(--ink-dim);
+}
+pre .c { color: var(--ink-mute); }
+
+/* Footer */
+footer {
+  padding: 44px 0 60px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-mute); font-size: 14px;
+}
+.foot-in { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; }
+.foot-in .nav-spacer { flex: 1; }
+footer a { color: var(--ink-dim); }
+</style>
+</head>
+<body>
+
+<nav class="nav" id="nav">
+  <div class="wrap nav-in">
+    <a class="brand" href="#top"><span class="brand-mark">🖕🏻</span> FlipOff</a>
+    <span class="nav-spacer"></span>
+    <a class="nav-link" href="#how">How it works</a>
+    <a class="nav-link" href="#install">Install</a>
+    <a class="nav-link" href="https://github.com/sirpooya/osx-flipoff-lockscreen">GitHub</a>
+  </div>
+</nav>
+
+<main id="top">
+
+  <!-- ===================== Hero ===================== -->
+  <header class="hero">
+    <div class="wrap">
+      <h1>Protect your Mac<br>from <span class="flip">nosy snoops</span>.</h1>
+
+      <p class="lede">
+        Baits snoops into thinking your Mac isn't locked. One wrong touch and they get
+        your message, your sound, and a mugshot taken.
+      </p>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" id="dl" href="https://github.com/sirpooya/osx-flipoff-lockscreen/releases/latest">
+          <!-- lucide/download -->
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" x2="12" y1="15" y2="3"/>
+          </svg>
+          Download for Mac
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/sirpooya/osx-flipoff-lockscreen">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38v-1.34c-2.23.48-2.7-1.07-2.7-1.07-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.8.06 1.23.83 1.23.83.71 1.22 1.87.87 2.33.66.07-.52.28-.87.5-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 0 1 4 0c1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.14.46.55.38A8 8 0 0 0 8 0Z"/>
+          </svg>
+          View on GitHub
+        </a>
+      </div>
+
+      <p class="req">Requires macOS 14+</p>
+    </div>
+
+    <!-- ===================== The demo ===================== -->
+    <div class="stage">
+      <div class="stage-in">
+        <div class="demo" id="demo" data-phase="idle" role="img"
+             aria-label="Click the FlipOff icon in the menu bar and choose Lock Screen. Unlock with Cmd+Shift+L or Touch ID.">
+
+          <div class="cam">
+            <div class="desktop"></div>
+
+            <div class="win win-a">
+              <span class="win-line" style="left:8px;  top:20px; width:78px"></span>
+              <span class="win-line" style="left:8px;  top:29px; width:104px"></span>
+              <span class="win-line" style="left:8px;  top:38px; width:62px"></span>
+              <span class="win-line" style="left:8px;  top:54px; width:96px"></span>
+              <span class="win-line" style="left:8px;  top:63px; width:44px"></span>
+            </div>
+            <div class="win win-b">
+              <span class="win-line" style="left:9px;  top:22px; width:118px"></span>
+              <span class="win-line" style="left:9px;  top:31px; width:86px"></span>
+              <span class="win-line" style="left:9px;  top:47px; width:132px"></span>
+              <span class="win-line" style="left:9px;  top:56px; width:71px"></span>
+              <span class="win-line" style="left:9px;  top:65px; width:110px"></span>
+              <span class="win-line" style="left:9px;  top:74px; width:52px"></span>
+            </div>
+
+            <div class="menubar">
+              <!-- lucide/wifi -->
+              <svg width="11" height="11" viewBox="0 0 24 24" stroke-width="2.4" aria-hidden="true">
+                <path d="M12 20h.01"/>
+                <path d="M2 8.82a15 15 0 0 1 20 0"/>
+                <path d="M5 12.859a10 10 0 0 1 14 0"/>
+                <path d="M8.5 16.429a5 5 0 0 1 7 0"/>
+              </svg>
+              <span class="mb-gap-8"></span>
+              <!-- lucide/battery, with the charge bar filled in -->
+              <svg width="13" height="13" viewBox="0 0 24 24" stroke-width="2" aria-hidden="true">
+                <rect x="2" y="7" width="16" height="10" rx="2" ry="2"/>
+                <line x1="22" x2="22" y1="11" y2="13" stroke-width="3.4"/>
+                <rect class="solid" x="4" y="9" width="9" height="6" rx="1"/>
+              </svg>
+              <span class="mb-gap-10"></span>
+              <span class="mb-slot"></span>
+              <span class="mb-gap-10"></span>
+              <span class="mb-clock">11:21</span>
+            </div>
+
+            <div class="mb-icon">🖕🏻</div>
+
+            <div class="ripple" id="ripple"></div>
+            <div class="veil"></div>
+
+            <div class="menu">
+              <div class="menu-row">
+                <!-- lucide/lock -->
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Lock Screen
+              </div>
+              <div class="menu-bar-stub" style="width:44px"></div>
+              <div class="menu-bar-stub" style="width:32px"></div>
+            </div>
+
+            <!-- lucide/mouse-pointer-2, filled -->
+            <svg class="cursor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"
+                    fill="#fff" stroke="rgba(0,0,0,.45)" stroke-width="1.4"
+                    stroke-linejoin="round"/>
+            </svg>
+          </div>
+
+          <!-- crisp layer -->
+          <div class="gag">
+            <div class="mascot">🖕🏻</div>
+            <div class="msg">Nice try. Now back off.</div>
+          </div>
+
+          <div class="hints">
+            <div class="chord" id="chord">
+              <kbd>Cmd</kbd><kbd>Shift</kbd><kbd>L</kbd>
+            </div>
+            <span class="hint-or">or</span>
+            <div class="touch">
+              <span class="ring" id="ringA"></span>
+              <span class="ring" id="ringB"></span>
+              <!-- lucide/fingerprint -->
+              <svg class="touch-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M2 12C2 6.5 6.5 2 12 2a10 10 0 0 1 8 4"/>
+                <path d="M5 19.5C5.5 18 6 15 6 12c0-.7.12-1.37.34-2"/>
+                <path d="M17.29 21.02c.12-.6.43-2.3.5-3.02"/>
+                <path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4"/>
+                <path d="M8.65 22c.21-.66.45-1.32.57-2"/>
+                <path d="M14 13.12c0 2.38 0 6.38-1 8.88"/>
+                <path d="M2 16h.01"/>
+                <path d="M21.8 16c.2-2 .131-5.354 0-6"/>
+                <path d="M9 6.8a6 6 0 0 1 9 5.2c0 .47 0 1.17-.02 2"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <p class="caption">
+        <span class="caption-slot" id="cap"></span>
+      </p>
+    </div>
+  </header>
+
+  <hr class="rule">
+
+  <!-- ===================== How it works ===================== -->
+  <section id="how">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>A decoy, not a vault</h2>
+        <p>
+          The goal is to fool a nosy coworker or sibling for the ten seconds it takes
+          them to reach for your trackpad — not to stop a real attacker.
+        </p>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <div class="card-ico">
+            <!-- lucide/monitor -->
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect width="20" height="14" x="2" y="3" rx="2"/>
+              <line x1="8" x2="16" y1="21" y2="21"/>
+              <line x1="12" x2="12" y1="17" y2="21"/>
+            </svg>
+          </div>
+          <h3>Your desktop, still live</h3>
+          <p>
+            The shield is transparent, so the real desktop keeps rendering underneath —
+            notifications slide in, videos play, spinners spin. No blur, no lock chrome,
+            no "this Mac is locked" banner. Prefer a still? Frozen mode screenshots every
+            display instead.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-ico">
+            <!-- lucide/lock -->
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+          <h3>Nothing dismisses it</h3>
+          <p>
+            Keys, clicks, scroll, tablet input — all swallowed. Unlike a real screensaver,
+            which quits on any keypress, FlipOff gives way only to your own hotkey or
+            Touch ID. Poke it and the mascot wakes up.
+
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="card-ico">
+            <!-- lucide/camera -->
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/>
+              <circle cx="12" cy="13" r="3"/>
+            </svg>
+          </div>
+          <h3>It photographs them</h3>
+          <p>
+            One silent snapshot from the built-in camera, saved to your Downloads folder —
+            fired only on a failed unlock, never on lock, never twice for the same lock.
+            You come back and find out who tried.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding-top:0">
+    <div class="wrap">
+      <div class="honest">
+        <h3>What it isn't</h3>
+        <p>
+          Anyone who can power-cycle your Mac, pull the disk, or SSH in is entirely
+          unaffected — FlipOff is a window, not FileVault. Use <span class="inline-code">⌃⌘Q</span>
+          for actual security. Use FlipOff when you want to leave your screen up and
+          have opinions about who reads it.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ===================== Install ===================== -->
+  <section id="install">
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Install</h2>
+        <p>Menu-bar only — no Dock icon, no window, no account.</p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div>
+            <h3>Download and unzip</h3>
+            <p>Drag <span class="inline-code">FlipOff.app</span> into <span class="inline-code">/Applications</span>.</p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>Right-click → Open on first launch</h3>
+            <p>
+              Builds are unsigned and un-notarized, so Gatekeeper objects once. Auto-updates
+              are verified by an EdDSA signature instead of an Apple certificate.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>Grant Accessibility</h3>
+            <p>
+              That's the one that matters — it's what lets FlipOff swallow keyboard and
+              trackpad input. Camera is optional and only powers the snoop snapshot;
+              Screen Recording is only needed if you switch the backdrop to Frozen. Deny
+              either and the lock still works.
+            </p>
+          </div>
+        </div>
+        <div class="step">
+          <div>
+            <h3>Hit <span class="inline-code">Cmd+Shift+L</span></h3>
+            <p>Rebindable in Settings, along with the mascot emoji and the sound.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <!-- ===================== Build ===================== -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <h2>Build from source</h2>
+        <p>Swift + SwiftUI, no dependencies beyond Sparkle.</p>
+      </div>
+<pre><span class="c"># Xcode 26 on macOS 26 — the app icon is an Icon Composer bundle</span>
+brew install xcodegen
+xcodegen generate
+xcodebuild -scheme FlipOff -configuration Debug build</pre>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap foot-in">
+    <span>🖕🏻 FlipOff — does exactly what it says.</span>
+    <span class="nav-spacer"></span>
+    <a href="https://github.com/sirpooya/osx-flipoff-lockscreen">GitHub</a>
+    <a href="https://github.com/sirpooya/osx-flipoff-lockscreen/blob/main/LICENSE">MIT</a>
+    <a href="https://github.com/sorkila/lockpaw">Forked from lockpaw</a>
+  </div>
+</footer>
+
+<script>
+/* ============================================================================
+   Onboarding demo driver — a port of OnboardingLockDemo.swift.
+
+   The Swift version runs one `Task` that flips state inside `withAnimation`
+   with sleeps between, because `PhaseAnimator` cannot hold a phase still and
+   gives only one curve per phase. That structure survives intact here: this
+   loop owns the timeline, and every visual lives in CSS keyed off
+   `[data-phase]` / class flags. No animation library, no keyframe percentages
+   to recompute when a dwell changes.
+   ============================================================================ */
+(() => {
+  const demo   = document.getElementById('demo');
+  const ripple = document.getElementById('ripple');
+  const chord  = [...document.getElementById('chord').children];
+  const ringA  = document.getElementById('ringA');
+  const ringB  = document.getElementById('ringB');
+  const cap    = document.getElementById('cap');
+  const cursor = demo.querySelector('.cursor');
+
+  const W = 336, H = 196;
+
+  /* Geometry, derived the same way the Swift file derives it: from the menu
+     bar's trailing widths, so the pointer, the ripple and the menu land on the
+     icon by construction rather than by eyeballed offsets. */
+  const ICON = { x: W - 61, y: 9 };          // iconCenter
+  const MENU_ROW = { x: ICON.x - 44 - 20, y: 32 };
+  const INTRUSION = { x: W * 0.5, y: H * 0.62 };
+  const IDLE_PT = { x: W * 0.44, y: H * 0.72 };
+
+  /* dwell = how long the phase holds once its transition is kicked off.
+     Phases with sub-beats time themselves inside beats(). */
+  const PHASES = [
+    ['idle',       650],
+    ['pointerIn',  750],
+    ['click',      450],
+    ['menu',       700],
+    ['pick',       500],
+    ['locking',    800],
+    /* Long on purpose: the mascot has to sit there alone, having done nothing
+       for the snoop, before the demo starts explaining how YOU get back in.
+       Cutting straight from the failed click to the hotkey hint reads as though
+       the click brought the hint up. */
+    ['intrusion', 1500],
+    ['zoom',       750],
+    ['hotkey',     550],
+    ['touch',      550],
+    ['unlocking',  800],
+  ];
+
+  const LOCKED     = ['locking','intrusion','zoom','hotkey','touch'];
+  const ZOOMED     = ['zoom','hotkey','touch'];
+  const MENU_OPEN  = ['menu','pick'];
+  const CURSOR_ON  = ['pointerIn','click','menu','pick','intrusion'];
+  const CURSOR_DN  = ['click','pick','intrusion'];
+
+  const CAPTIONS = {
+    pointerIn: 'Click the FlipOff icon in your menu bar…',
+    click:     'Click the FlipOff icon in your menu bar…',
+    menu:      '…and choose Lock Screen.',
+    pick:      '…and choose Lock Screen.',
+    locking:   'Locked — but the desktop stays live. Nothing looks locked.',
+    intrusion: 'Someone touches the trackpad. Now they know.',
+    zoom:      'Two ways back in — and only two.',
+    hotkey:    'Your hotkey…',
+    touch:     '…or Touch ID.',
+  };
+
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  /* Restart a CSS animation from its first keyframe. `void offsetWidth` forces
+     the style recalc that makes the removal take effect before the re-add —
+     without it the browser coalesces both writes and nothing replays. */
+  const pulse = el => {
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+  };
+
+  const setCursor = pt => {
+    cursor.style.left = pt.x + 'px';
+    cursor.style.top  = pt.y + 'px';
+  };
+  const setRipple = pt => {
+    ripple.style.left = pt.x + 'px';
+    ripple.style.top  = pt.y + 'px';
+  };
+
+  function applyPhase(p) {
+    demo.dataset.phase = p;
+    demo.classList.toggle('locked',      LOCKED.includes(p));
+    demo.classList.toggle('zoomed',      ZOOMED.includes(p));
+    demo.classList.toggle('menu-open',   MENU_OPEN.includes(p));
+    demo.classList.toggle('cursor-on',   CURSOR_ON.includes(p));
+    demo.classList.toggle('cursor-down', CURSOR_DN.includes(p));
+    demo.classList.toggle('icon-lit',    MENU_OPEN.includes(p) || p === 'click');
+
+    if (p === 'menu' || p === 'pick')      setCursor({ x: MENU_ROW.x, y: MENU_ROW.y + 1 });
+    else if (p === 'intrusion')            setCursor(INTRUSION);
+    else if (p === 'idle' || p === 'unlocking') setCursor(IDLE_PT);
+    else                                   setCursor({ x: ICON.x + 2, y: ICON.y + 5 });
+
+    if (p === 'pick')           setRipple(MENU_ROW);
+    else if (p === 'intrusion') setRipple(INTRUSION);
+    else                        setRipple(ICON);
+
+    // Caption: one label lit at a time, cross-faded by CSS.
+    const text = CAPTIONS[p];
+    if (text && cap.textContent !== text) {
+      cap.classList.remove('on');
+      setTimeout(() => { cap.textContent = text; cap.classList.add('on'); }, 180);
+    } else if (!text && p === 'unlocking') {
+      cap.classList.remove('on');
+    }
+  }
+
+  /* Per-phase sub-animations, each responsible for its own dwell. */
+  async function beats(p, dwell) {
+    switch (p) {
+      case 'click':
+      case 'pick':
+        pulse(ripple);
+        await sleep(dwell);
+        break;
+
+      case 'intrusion':
+        // Someone clicks the shield. Nothing unlocks — and THAT is what wakes
+        // the mascot. The real shield shows nothing but a faint Touch ID glyph
+        // until something is typed or clicked, so popping the mascot at the
+        // moment of lock would teach a lock screen the app doesn't have.
+        await sleep(280);
+        pulse(ripple);
+        await sleep(160);
+        demo.classList.add('revealed');
+        await sleep(dwell);
+        break;
+
+      case 'zoom':
+        // Push the camera in first, land the hints once it has settled.
+        await sleep(500);
+        demo.classList.add('hints-shown');
+        await sleep(dwell);
+        break;
+
+      case 'hotkey':
+        // Press the chord key by key, hold, release it all at once.
+        for (let i = 0; i < chord.length; i++) {
+          await sleep(130);
+          chord[i].classList.add('down');
+        }
+        await sleep(450);
+        chord.forEach(k => k.classList.remove('down'));
+        await sleep(dwell);
+        break;
+
+      case 'touch':
+        demo.classList.add('touch-down');
+        pulse(ringA);
+        await sleep(340);
+        pulse(ringB);          // separate element so the two rings can overlap
+        await sleep(500);
+        demo.classList.remove('touch-down');
+        await sleep(dwell);
+        break;
+
+      case 'unlocking':
+        // Drop the reveal with the veil, so the next pass round the loop starts
+        // from a genuinely bare shield instead of a pre-woken one.
+        demo.classList.remove('revealed', 'hints-shown');
+        await sleep(dwell);
+        break;
+
+      default:
+        await sleep(dwell);
+    }
+  }
+
+  /* Only animate while the demo is actually on screen — a loop running behind
+     four sections of scrolled-past page is pure battery cost. */
+  let visible = true;
+  if ('IntersectionObserver' in window) {
+    new IntersectionObserver(
+      ([e]) => { visible = e.isIntersecting; },
+      { threshold: 0.15 }
+    ).observe(demo);
+  }
+  const awaitVisible = async () => { while (!visible) await sleep(300); };
+
+  async function run() {
+    for (;;) {
+      for (const [p, dwell] of PHASES) {
+        await awaitVisible();
+        applyPhase(p);
+        await beats(p, dwell);
+      }
+      await sleep(400);
+    }
+  }
+
+  // Motion off: hold the frame that carries the headline's claim — the icon
+  // sitting lit in the menu bar — and state the unlock routes as text.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    applyPhase('idle');
+    demo.classList.add('icon-lit');
+    cap.textContent = 'Lock with Cmd+Shift+L. Unlock with the same hotkey, or Touch ID.';
+    cap.classList.add('on');
+  } else {
+    run();
+  }
+})();
+
+/* Nav hairline appears only once the page has moved. */
+const nav = document.getElementById('nav');
+const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 8);
+addEventListener('scroll', onScroll, { passive: true });
+onScroll();
+
+/* Point the download button at the newest release asset, and label it with the
+   version. Progressive enhancement only — the href already works as a link to
+   the releases page if this fetch fails or the API rate-limits. */
+fetch('https://api.github.com/repos/sirpooya/osx-flipoff-lockscreen/releases/latest')
+  .then(r => r.ok ? r.json() : Promise.reject(r.status))
+  .then(rel => {
+    const zip = (rel.assets || []).find(a => a.name.endsWith('.zip'));
+    if (zip) document.getElementById('dl').href = zip.browser_download_url;
+  })
+  .catch(() => {});
+</script>
+</body>
+</html>

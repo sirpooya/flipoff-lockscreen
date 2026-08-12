@@ -2,13 +2,13 @@ import Cocoa
 import Carbon
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "InputBlocker")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "InputBlocker")
 
 class InputBlocker {
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private var isBlocking = false
-    private static let inputQueue = DispatchQueue(label: "in.pooya.bilakh.input", qos: .userInteractive)
+    private static let inputQueue = DispatchQueue(label: "in.pooya.flipoff.input", qos: .userInteractive)
 
     /// Cached hotkey values — read once, used in the event tap callback
     /// to avoid hitting UserDefaults on every keystroke.
@@ -37,7 +37,7 @@ class InputBlocker {
         reloadHotkeyConfig()
 
         hotkeyObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhHotkeyPreferenceChanged,
+            forName: .flipOffHotkeyPreferenceChanged,
             object: nil,
             queue: .main
         ) { [weak self] _ in
@@ -93,7 +93,7 @@ class InputBlocker {
                     // Let the unlock hotkey through
                     if modifiersMatch && keyCode == savedKeyCode {
                         InputBlocker.inputQueue.async {
-                            NotificationCenter.default.post(name: .toggleBilakh, object: nil)
+                            NotificationCenter.default.post(name: .toggleFlipOff, object: nil)
                         }
                         return nil
                     }
@@ -103,7 +103,7 @@ class InputBlocker {
                     // any modal, it just doesn't unlock anything.
                     if keyCode == 53 {
                         DispatchQueue.main.async {
-                            NotificationCenter.default.post(name: .bilakhDismissReveal, object: nil)
+                            NotificationCenter.default.post(name: .flipOffDismissReveal, object: nil)
                         }
                         return nil
                     }
@@ -121,7 +121,7 @@ class InputBlocker {
                 switch type {
                 case .keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel:
                     DispatchQueue.main.async {
-                        NotificationCenter.default.post(name: .bilakhInputAttempt, object: nil)
+                        NotificationCenter.default.post(name: .flipOffInputAttempt, object: nil)
                     }
                 default:
                     break
@@ -134,7 +134,7 @@ class InputBlocker {
 
         guard let eventTap = eventTap else {
             logger.error("Could not create event tap")
-            NotificationCenter.default.post(name: .bilakhInputBlockerFailed, object: nil)
+            NotificationCenter.default.post(name: .flipOffInputBlockerFailed, object: nil)
             return
         }
 

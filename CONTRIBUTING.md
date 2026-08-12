@@ -1,6 +1,6 @@
-# Contributing to Lockpaw
+# Contributing to FlipOff
 
-Thanks for your interest in contributing to Lockpaw. This guide will help you
+Thanks for your interest in contributing to FlipOff. This guide will help you
 get started.
 
 ## Quick start
@@ -10,20 +10,20 @@ Requirements: macOS 14+, Xcode 16+, XcodeGen.
 ```bash
 brew install xcodegen
 xcodegen generate
-xcodebuild -project Lockpaw.xcodeproj -scheme Lockpaw -configuration Debug build
+xcodebuild -project FlipOff.xcodeproj -scheme FlipOff -configuration Debug build
 ```
 
 After each rebuild, reset TCC (the binary signature changes invalidate
 accessibility permission):
 
 ```bash
-tccutil reset Accessibility com.eriknielsen.lockpaw
+tccutil reset Accessibility in.pooya.flipoff.debug
 ```
 
 ## Running tests
 
 ```bash
-xcodebuild -project Lockpaw.xcodeproj -scheme Lockpaw -configuration Debug test
+xcodebuild -project FlipOff.xcodeproj -scheme FlipOff -configuration Debug test
 ```
 
 There are 34 unit tests covering LockState transitions, Constants formatting,
@@ -65,7 +65,7 @@ Good candidates for contribution:
 - Accessibility improvements.
 - Performance or reliability improvements.
 
-The design of Lockpaw is intentionally minimal and restrained. If you are
+The design of FlipOff is intentionally minimal and restrained. If you are
 considering UI changes or new features, please open an issue first to discuss
 the approach before writing code.
 

@@ -2,22 +2,22 @@ import Foundation
 
 /// All notification names in one place.
 extension Notification.Name {
-    static let bilakhLock = Notification.Name("bilakhLock")
-    static let bilakhUnlock = Notification.Name("bilakhUnlock")
-    static let bilakhUnlockPassword = Notification.Name("bilakhUnlockPassword")
-    static let bilakhInputBlockerFailed = Notification.Name("bilakhInputBlockerFailed")
+    static let flipOffLock = Notification.Name("flipOffLock")
+    static let flipOffUnlock = Notification.Name("flipOffUnlock")
+    static let flipOffUnlockPassword = Notification.Name("flipOffUnlockPassword")
+    static let flipOffInputBlockerFailed = Notification.Name("flipOffInputBlockerFailed")
     /// Posted on the first key/click swallowed by the shield — wakes the lock screen.
-    static let bilakhInputAttempt = Notification.Name("bilakhInputAttempt")
+    static let flipOffInputAttempt = Notification.Name("flipOffInputAttempt")
     /// Posted on Esc while locked — hides an already-revealed gag immediately.
-    static let bilakhDismissReveal = Notification.Name("bilakhDismissReveal")
-    static let bilakhSessionLost = Notification.Name("bilakhSessionLost")
-    static let toggleBilakh = Notification.Name("toggleBilakh")
-    static let bilakhHotkeyPreferenceChanged = Notification.Name("bilakhHotkeyPreferenceChanged")
+    static let flipOffDismissReveal = Notification.Name("flipOffDismissReveal")
+    static let flipOffSessionLost = Notification.Name("flipOffSessionLost")
+    static let toggleFlipOff = Notification.Name("toggleFlipOff")
+    static let flipOffHotkeyPreferenceChanged = Notification.Name("flipOffHotkeyPreferenceChanged")
     /// Posted when an AI agent pings (bridged from the distributed notification, or fired by the in-app test button).
-    static let bilakhPing = Notification.Name("bilakhPing")
+    static let flipOffPing = Notification.Name("flipOffPing")
     /// Reopens the onboarding window, optionally on a given step (`object` is the
     /// step index as an `Int`). Observed by `AppDelegate`, which owns that window —
     /// the menu-bar item that posts this only exists while the menu is open, so a
     /// view could never observe it in time.
-    static let bilakhShowOnboarding = Notification.Name("bilakhShowOnboarding")
+    static let flipOffShowOnboarding = Notification.Name("flipOffShowOnboarding")
 }

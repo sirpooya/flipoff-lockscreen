@@ -1,15 +1,15 @@
 import SwiftUI
 
 enum Constants {
-    static let appName = "Bilakh"
-    static let bundleIdentifier = "in.pooya.bilakh"
-    static let urlScheme = "bilakh"
+    static let appName = "FlipOff"
+    static let bundleIdentifier = "in.pooya.flipoff"
+    static let urlScheme = "flipoff"
     static let defaultLockMessage = "Nice try. Now back off."
 
-    /// Distributed notification name the `bilakh` CLI posts on `ping`.
+    /// Distributed notification name the `flipoff` CLI posts on `ping`.
     /// DistributedNotificationCenter is used (not the URL scheme) so a background
     /// ping never launches the app when it isn't already running.
-    static let pingDistributedName = "in.pooya.bilakh.ping"
+    static let pingDistributedName = "in.pooya.flipoff.ping"
 
     /// UserDefaults key: play a sound on agent ping. Off by default for shared spaces.
     static let agentPingSoundKey = "agentPingSound"

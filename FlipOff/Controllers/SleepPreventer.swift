@@ -2,7 +2,7 @@ import Foundation
 import IOKit.pwr_mgt
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "SleepPreventer")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "SleepPreventer")
 
 class SleepPreventer {
     private var assertionID: IOPMAssertionID = IOPMAssertionID(0)
@@ -12,7 +12,7 @@ class SleepPreventer {
 
     func preventSleep() {
         guard !isActive else { return }
-        let reason = "Bilakh: Screen covered - preventing display sleep & screensaver" as CFString
+        let reason = "FlipOff: Screen covered - preventing display sleep & screensaver" as CFString
         let result = IOPMAssertionCreateWithName(
             kIOPMAssertionTypePreventUserIdleDisplaySleep as CFString,
             IOPMAssertionLevel(kIOPMAssertionLevelOn),
@@ -50,7 +50,7 @@ class SleepPreventer {
 
     private func declareUserActivity() {
         let result = IOPMAssertionDeclareUserActivity(
-            "Bilakh active" as CFString,
+            "FlipOff active" as CFString,
             kIOPMUserActiveLocal,
             &activityAssertionID
         )

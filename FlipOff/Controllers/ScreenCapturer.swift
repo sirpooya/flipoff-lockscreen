@@ -3,7 +3,7 @@ import CoreGraphics
 import ScreenCaptureKit
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "ScreenCapture")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "ScreenCapture")
 
 extension NSScreen {
     /// The CoreGraphics display ID behind this screen — the only stable key that

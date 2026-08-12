@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    # macos-26 (Xcode 26.x), NOT macos-15 — `Bilakh/Resources/AppIcon.icon` is an
+    # macos-26 (Xcode 26.x), NOT macos-15 — `FlipOff/Resources/AppIcon.icon` is an
     # Icon Composer bundle, a macOS 26 / Xcode 26 format. Xcode 16 on macos-15 does
     # not recognize it: instead of compiling it into AppIcon.icns it silently
     # *copies* it into Resources as an inert folder and sets no CFBundleIconFile /
@@ -46,8 +46,8 @@ jobs:
       - name: Build release (no Apple identity)
         run: |
           set -o pipefail
-          xcodebuild -project Bilakh.xcodeproj \
-            -scheme Bilakh \
+          xcodebuild -project FlipOff.xcodeproj \
+            -scheme FlipOff \
             -configuration Release \
             -derivedDataPath build/DerivedData \
             -destination 'platform=macOS' \
@@ -64,7 +64,7 @@ jobs:
       - name: Verify app icon
         run: |
           set -euo pipefail
-          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+          APP_PATH="build/DerivedData/Build/Products/Release/FlipOff.app"
 
           if [ ! -f "$APP_PATH/Contents/Resources/AppIcon.icns" ]; then
             echo "::error::AppIcon.icns missing — AppIcon.icon was not compiled."
@@ -108,7 +108,7 @@ jobs:
       - name: Ad-hoc sign bundle
         run: |
           set -euo pipefail
-          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+          APP_PATH="build/DerivedData/Build/Products/Release/FlipOff.app"
 
           # NO `--options runtime` anywhere here. Hardened runtime turns on Library
           # Validation, which requires every loaded library to share the main
@@ -141,7 +141,7 @@ jobs:
 
           # Entitlements are applied only to the main executable, not the nested code.
           codesign --force --sign - --timestamp=none \
-            --entitlements Bilakh/Bilakh.entitlements \
+            --entitlements FlipOff/FlipOff.entitlements \
             "$APP_PATH"
 
           # Belt and braces: the runtime flag must not be set on the result.
@@ -177,13 +177,13 @@ jobs:
       - name: Smoke test launch
         run: |
           set -uo pipefail
-          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+          APP_PATH="build/DerivedData/Build/Products/Release/FlipOff.app"
           LOG="$RUNNER_TEMP/launch.log"
 
           # LSUIElement app with no Dock tile — run the executable directly and
           # background it rather than going through `open`, so its dyld errors land
           # on our stderr instead of in the window server's lap.
-          "$APP_PATH/Contents/MacOS/Bilakh" >"$LOG" 2>&1 &
+          "$APP_PATH/Contents/MacOS/FlipOff" >"$LOG" 2>&1 &
           APP_PID=$!
           sleep 8
 
@@ -212,9 +212,9 @@ jobs:
         id: package
         run: |
           set -euo pipefail
-          APP_PATH="build/DerivedData/Build/Products/Release/Bilakh.app"
+          APP_PATH="build/DerivedData/Build/Products/Release/FlipOff.app"
           TAG="${GITHUB_REF#refs/tags/}"
-          ZIP_NAME="Bilakh-${TAG}.zip"
+          ZIP_NAME="FlipOff-${TAG}.zip"
 
           test -d "$APP_PATH" || { echo "::error::$APP_PATH not found"; exit 1; }
 

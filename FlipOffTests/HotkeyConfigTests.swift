@@ -1,6 +1,6 @@
 import XCTest
 import AppKit
-@testable import Bilakh
+@testable import FlipOff
 
 final class HotkeyConfigTests: XCTestCase {
     override func setUp() {

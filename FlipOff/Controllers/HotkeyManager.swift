@@ -2,7 +2,7 @@ import Cocoa
 import Carbon
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "HotkeyManager")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "HotkeyManager")
 
 /// Manages global hotkey detection using a CGEventTap on a dedicated background thread.
 /// Running on its own thread with its own run loop bypasses the LSUIElement activation
@@ -63,7 +63,7 @@ class HotkeyManager {
 
                 if matches {
                     DispatchQueue.main.async {
-                        NotificationCenter.default.post(name: .toggleBilakh, object: nil)
+                        NotificationCenter.default.post(name: .toggleFlipOff, object: nil)
                     }
                 }
 
@@ -94,7 +94,7 @@ class HotkeyManager {
 
             logger.info("registerHotkey: background run loop exited")
         }
-        thread.name = "in.pooya.bilakh.hotkey"
+        thread.name = "in.pooya.flipoff.hotkey"
         thread.qualityOfService = .userInteractive
         thread.start()
         tapThread = thread

@@ -3,7 +3,7 @@ import LocalAuthentication
 import LocalAuthenticationEmbeddedUI
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "EmbeddedTouchID")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "EmbeddedTouchID")
 
 /// The Touch ID glyph on the lock screen, and the only way this app can read the
 /// sensor without a system modal landing on top of the shield.

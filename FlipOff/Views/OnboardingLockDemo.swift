@@ -1,14 +1,14 @@
 import ImageIO
 import SwiftUI
 
-/// The looping "here's how Bilakh works" animation on the final onboarding step:
+/// The looping "here's how FlipOff works" animation on the final onboarding step:
 /// a miniature desktop where a pointer opens the menu-bar menu, picks *Lock
 /// Screen*, the screen locks bare, a wrong key press wakes the mascot, and then
 /// both unlock routes — the hotkey chord and the sensor — play out once each.
 ///
 /// That middle beat matters for honesty: the real shield shows *nothing* but a
 /// faint Touch ID glyph until something is typed or clicked
-/// (`LockController`/`bilakhInputAttempt` → `revealed`). Popping the mascot up at
+/// (`LockController`/`flipOffInputAttempt` → `revealed`). Popping the mascot up at
 /// the moment of lock would teach a lock screen the app doesn't have.
 ///
 /// Drawn in code rather than recorded on purpose: it stays sharp at any size,
@@ -73,7 +73,7 @@ struct OnboardingLockDemo: View {
             case .pick: 0.5
             case .locking: 0.8
             // Long on purpose: the mascot has to sit there alone, having done
-            // nothing for the intruder, before the demo starts talking about how
+            // nothing for the snoop, before the demo starts talking about how
             // *you* get back in. Cutting straight from the failed click to the
             // hotkey hint reads as though the click brought the hint up.
             case .intrusion: 1.5
@@ -103,7 +103,7 @@ struct OnboardingLockDemo: View {
     private var menuOpen: Bool { phase == .menu || phase == .pick }
     private var pointerVisible: Bool { [.pointerIn, .click, .menu, .pick, .intrusion].contains(phase) }
     private var pointerPressed: Bool { [.click, .pick, .intrusion].contains(phase) }
-    /// Where the intruder pokes the shield — below the mascot's reveal spot, so the
+    /// Where the snoop pokes the shield — below the mascot's reveal spot, so the
     /// two don't land on top of each other.
     private var intrusionPoint: CGPoint { CGPoint(x: size.width * 0.5, y: size.height * 0.62) }
     private var iconLit: Bool { menuOpen || phase == .click }
@@ -134,7 +134,7 @@ struct OnboardingLockDemo: View {
             ZStack {
                 desktop
                 menuBar
-                bilakhIcon
+                flipOffIcon
                 clickRipple
                 lockVeil
                 menuPanel
@@ -172,7 +172,7 @@ struct OnboardingLockDemo: View {
         }
         .accessibilityElement()
         .accessibilityLabel(
-            "Click the Bilakh icon in the menu bar and choose Lock Screen. "
+            "Click the FlipOff icon in the menu bar and choose Lock Screen. "
                 + "Unlock with \(hotkeyDisplay) or Touch ID."
         )
     }
@@ -254,10 +254,10 @@ struct OnboardingLockDemo: View {
         }
     }
 
-    private var bilakhIcon: some View {
+    private var flipOffIcon: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 4, style: .continuous)
-                .fill(Color("BilakhAmber").opacity(iconLit ? 0.30 : 0.14))
+                .fill(Color("FlipOffAmber").opacity(iconLit ? 0.30 : 0.14))
                 .frame(width: 22, height: 16)
 
             Image("MenuBarIcon")
@@ -265,7 +265,7 @@ struct OnboardingLockDemo: View {
                 .resizable()
                 .scaledToFit()
                 .frame(height: 10)
-                .foregroundStyle(Color("BilakhAmber"))
+                .foregroundStyle(Color("FlipOffAmber"))
         }
         .scaleEffect(phase == .click ? 0.9 : 1)
         .position(iconCenter)
@@ -279,7 +279,7 @@ struct OnboardingLockDemo: View {
         Circle()
             // White while locked: the amber ripples are the two clicks that *do*
             // something, and this one is a poke the shield ignores.
-            .strokeBorder(phase == .intrusion ? .white : Color("BilakhAmber"), lineWidth: 1.2)
+            .strokeBorder(phase == .intrusion ? .white : Color("FlipOffAmber"), lineWidth: 1.2)
             .frame(width: 20, height: 20)
             .scaleEffect(0.5 + ripple * 1.6)
             .opacity(ripple == 0 ? 0 : 0.6 * (1 - ripple))
@@ -305,7 +305,7 @@ struct OnboardingLockDemo: View {
                 .opacity(locked ? 0.76 : 0)
 
             RadialGradient(
-                colors: [Color("BilakhTeal").opacity(0.18), .clear],
+                colors: [Color("FlipOffTeal").opacity(0.18), .clear],
                 center: UnitPoint(x: 0.5, y: 0.44),
                 startRadius: 4,
                 endRadius: 155
@@ -332,7 +332,7 @@ struct OnboardingLockDemo: View {
             .padding(.vertical, 4)
             .background(
                 RoundedRectangle(cornerRadius: 4, style: .continuous)
-                    .fill(phase == .pick ? Color("BilakhAmber") : .clear)
+                    .fill(phase == .pick ? Color("FlipOffAmber") : .clear)
             )
 
             ForEach(0..<2, id: \.self) { i in
@@ -417,17 +417,17 @@ struct OnboardingLockDemo: View {
                         ForEach(Array(keyCaps.enumerated()), id: \.offset) { index, cap in
                             Text(cap)
                                 .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundStyle(Color("BilakhAmber"))
+                                .foregroundStyle(Color("FlipOffAmber"))
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 4)
                                 .background(
                                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                        .fill(Color("BilakhAmber")
+                                        .fill(Color("FlipOffAmber")
                                             .opacity(index < pressedKeys ? 0.32 : 0.10))
                                 )
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                        .strokeBorder(Color("BilakhAmber")
+                                        .strokeBorder(Color("FlipOffAmber")
                                             .opacity(index < pressedKeys ? 0.55 : 0.16), lineWidth: 1)
                                 )
                                 .scaleEffect(index < pressedKeys ? 0.93 : 1)
@@ -454,12 +454,12 @@ struct OnboardingLockDemo: View {
 
             Image(systemName: "touchid")
                 .font(.system(size: 20, weight: .medium))
-                .foregroundStyle(Color("BilakhAmber"))
+                .foregroundStyle(Color("FlipOffAmber"))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 5, style: .continuous)
-                        .fill(Color("BilakhAmber").opacity(zoomed ? 0.10 : 0))
+                        .fill(Color("FlipOffAmber").opacity(zoomed ? 0.10 : 0))
                 )
                 .scaleEffect(touchPress ? 0.94 : 1)
         }
@@ -471,7 +471,7 @@ struct OnboardingLockDemo: View {
     /// is invisible, so the driver's un-animated reset doesn't strand a ring.
     private func ring(_ progress: CGFloat) -> some View {
         Circle()
-            .strokeBorder(Color("BilakhAmber"), lineWidth: 1.2)
+            .strokeBorder(Color("FlipOffAmber"), lineWidth: 1.2)
             .frame(width: 26, height: 26)
             .scaleEffect(0.7 + progress * 1.5)
             .opacity(progress == 0 ? 0 : 0.5 * (1 - progress))
@@ -588,7 +588,7 @@ struct OnboardingLockDemo: View {
 }
 
 // To see this in the real window, a Debug build answers
-// `open "bilakh://onboarding?step=3"`. This canvas is for tuning timings without
+// `open "flipoff://onboarding?step=3"`. This canvas is for tuning timings without
 // a rebuild.
 #Preview("Lock demo") {
     OnboardingLockDemo(emoji: "🖕🏻", hotkeyDisplay: "Cmd+Shift+L")

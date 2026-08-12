@@ -68,7 +68,7 @@ struct AmbientScreenView: View {
         return ZStack {
             // Blob A — deep teal, largest, anchor blob
             blob(
-                color: Color("BilakhTeal"),
+                color: Color("FlipOffTeal"),
                 width: w * 0.5, height: w * 0.4,
                 blur: 140,
                 opacity: 0.13 + 0.06 * osc(p, freq: 0.2),
@@ -92,7 +92,7 @@ struct AmbientScreenView: View {
 
             // Blob C — warm amber
             blob(
-                color: Color("BilakhAmber"),
+                color: Color("FlipOffAmber"),
                 width: w * 0.35, height: w * 0.3,
                 blur: 110,
                 opacity: 0.08 + 0.05 * osc(p, freq: 0.25, offset: 1.5),

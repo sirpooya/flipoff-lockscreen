@@ -5,13 +5,13 @@ import SwiftUI
 import LocalAuthentication
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "LockController")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "LockController")
 
 @MainActor
 class LockController: ObservableObject {
     /// True whenever *any* lock is up or in transition. Mirrors `state` for callers
     /// that can't reach the instance — the controller is a `@StateObject` owned by
-    /// `BilakhApp`, but `UpdateController` is a singleton with no handle on it and
+    /// `FlipOffApp`, but `UpdateController` is a singleton with no handle on it and
     /// needs to know whether a Sparkle dialog would land on top of a live shield.
     /// Maintained solely by `transitionTo`, alongside `state`.
     static private(set) var isAnyLockActive = false
@@ -76,7 +76,7 @@ class LockController: ObservableObject {
 
     init() {
         toggleObserver = NotificationCenter.default.addObserver(
-            forName: .toggleBilakh, object: nil, queue: .main
+            forName: .toggleFlipOff, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor [weak self] in
@@ -96,10 +96,10 @@ class LockController: ObservableObject {
         // These three used to be handled only by an `.onReceive` inside MenuBarView,
         // which exists only while the menu-bar popover is actually open. With the
         // popover closed — i.e. essentially always — Settings' "Lock Now" button and
-        // the whole `bilakh://lock|unlock|unlock-password` URL scheme posted into the
+        // the whole `flipoff://lock|unlock|unlock-password` URL scheme posted into the
         // void. They belong on the controller, which lives for the app's lifetime.
         lockObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhLock, object: nil, queue: .main
+            forName: .flipOffLock, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.state == .unlocked else { return }
@@ -108,7 +108,7 @@ class LockController: ObservableObject {
         }
 
         unlockObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhUnlock, object: nil, queue: .main
+            forName: .flipOffUnlock, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.state == .locked else { return }
@@ -117,7 +117,7 @@ class LockController: ObservableObject {
         }
 
         unlockPasswordObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhUnlockPassword, object: nil, queue: .main
+            forName: .flipOffUnlockPassword, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self, self.state == .locked else { return }
@@ -126,7 +126,7 @@ class LockController: ObservableObject {
         }
 
         inputAttemptObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhInputAttempt, object: nil, queue: .main
+            forName: .flipOffInputAttempt, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.revealOnFirstInput()
@@ -134,7 +134,7 @@ class LockController: ObservableObject {
         }
 
         dismissRevealObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhDismissReveal, object: nil, queue: .main
+            forName: .flipOffDismissReveal, object: nil, queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.dismissReveal()
@@ -161,7 +161,7 @@ class LockController: ObservableObject {
         }
 
         sessionLostObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhSessionLost, object: nil, queue: .main
+            forName: .flipOffSessionLost, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor [weak self] in
@@ -196,7 +196,7 @@ class LockController: ObservableObject {
         }
 
         inputBlockerFailedObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhInputBlockerFailed, object: nil, queue: .main
+            forName: .flipOffInputBlockerFailed, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor [weak self] in
@@ -208,7 +208,7 @@ class LockController: ObservableObject {
         }
 
         pingObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhPing, object: nil, queue: .main
+            forName: .flipOffPing, object: nil, queue: .main
         ) { [weak self] _ in
             guard let self else { return }
             Task { @MainActor [weak self] in
@@ -337,7 +337,7 @@ class LockController: ObservableObject {
     // Touch-to-unlock, without the system modal that made this unusable before.
     // A plain `evaluatePolicy` ALWAYS raises an alert — there is no silent way to
     // read the sensor — and that alert landed on top of the shield, announcing the
-    // lock and handing an intruder a dialog. The fix is `LAAuthenticationView`
+    // lock and handing a snoop a dialog. The fix is `LAAuthenticationView`
     // (macOS 12+): pair a context with an on-screen view first, and evaluation on
     // that context draws into the view instead of an alert. See
     // `EmbeddedTouchIDView` for the framework's constraints.
@@ -422,7 +422,7 @@ class LockController: ObservableObject {
             // failure. Gating on `handleAuthFailure()` alone meant the shot never
             // fired unless the whole system auth dialog round-tripped to a
             // failure, which most interactions with the shield never reach.
-            captureIntruderPhotoIfEnabled()
+            captureSnoopPhotoIfEnabled()
         }
 
         scheduleRevealHide()
@@ -430,7 +430,7 @@ class LockController: ObservableObject {
 
     /// Snapshots whoever's at the keyboard, once per lock. Gated on its own
     /// Settings toggle (default on) and silently skipped without Camera access.
-    private func captureIntruderPhotoIfEnabled() {
+    private func captureSnoopPhotoIfEnabled() {
         guard !hasCapturedThisLock else { return }
         let cameraEnabled = UserDefaults.standard.object(forKey: Constants.cameraOnFailedUnlockKey) as? Bool
             ?? Constants.defaultCameraOnFailedUnlock
@@ -583,9 +583,9 @@ class LockController: ObservableObject {
         // Also covered by `revealOnFirstInput()`, which fires far more reliably
         // (an explicit auth failure requires the whole Touch ID/password dialog
         // to round-trip); this just catches the case where that reveal somehow
-        // didn't happen first. `captureIntruderPhotoIfEnabled()` no-ops past the
+        // didn't happen first. `captureSnoopPhotoIfEnabled()` no-ops past the
         // first shot per lock either way.
-        captureIntruderPhotoIfEnabled()
+        captureSnoopPhotoIfEnabled()
 
         overlayManager.blockSystemDialogs()
         inputBlocker.startBlocking()

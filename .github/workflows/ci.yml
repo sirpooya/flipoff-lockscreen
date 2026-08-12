@@ -23,8 +23,8 @@ jobs:
 
       - name: Resolve packages
         run: |
-          xcodebuild -project Bilakh.xcodeproj \
-            -scheme Bilakh \
+          xcodebuild -project FlipOff.xcodeproj \
+            -scheme FlipOff \
             -resolvePackageDependencies
 
       # CI runners have no Apple Development identity, so the Team-ID-based
@@ -33,8 +33,8 @@ jobs:
       - name: Build
         run: |
           set -o pipefail
-          xcodebuild -project Bilakh.xcodeproj \
-            -scheme Bilakh \
+          xcodebuild -project FlipOff.xcodeproj \
+            -scheme FlipOff \
             -configuration Debug \
             -destination 'platform=macOS' \
             CODE_SIGN_IDENTITY="" \

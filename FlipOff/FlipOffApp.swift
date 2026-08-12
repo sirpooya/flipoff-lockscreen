@@ -1,10 +1,10 @@
 import SwiftUI
 import os.log
 
-private let logger = Logger(subsystem: "in.pooya.bilakh", category: "App")
+private let logger = Logger(subsystem: "in.pooya.flipoff", category: "App")
 
 @main
-struct BilakhApp: App {
+struct FlipOffApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @StateObject private var lockController = LockController()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
@@ -77,7 +77,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         hotkeyObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhHotkeyPreferenceChanged, object: nil, queue: nil
+            forName: .flipOffHotkeyPreferenceChanged, object: nil, queue: nil
         ) { [weak self] notification in
             DispatchQueue.main.async {
                 if let enabled = notification.userInfo?["enabled"] as? Bool {
@@ -96,17 +96,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        // Bridge agent pings (posted by the `bilakh` CLI via DistributedNotificationCenter)
-        // into a local notification. Using the distributed center — not the bilakh:// URL
+        // Bridge agent pings (posted by the `flipoff` CLI via DistributedNotificationCenter)
+        // into a local notification. Using the distributed center — not the flipoff:// URL
         // scheme — means a background ping never launches the app when it isn't running.
         pingDistributedObserver = DistributedNotificationCenter.default().addObserver(
             forName: Notification.Name(Constants.pingDistributedName), object: nil, queue: .main
         ) { _ in
-            NotificationCenter.default.post(name: .bilakhPing, object: nil)
+            NotificationCenter.default.post(name: .flipOffPing, object: nil)
         }
 
         showOnboardingObserver = NotificationCenter.default.addObserver(
-            forName: .bilakhShowOnboarding, object: nil, queue: .main
+            forName: .flipOffShowOnboarding, object: nil, queue: .main
         ) { [weak self] notification in
             self?.showOnboarding(startingAt: notification.object as? Int ?? 0)
         }
@@ -161,7 +161,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             styleMask: [.titled, .closable],
             backing: .buffered, defer: false
         )
-        window.title = "Welcome to Bilakh"
+        window.title = "Welcome to FlipOff"
         window.contentView = NSHostingView(rootView: view)
         window.center()
         window.isReleasedWhenClosed = false
@@ -194,19 +194,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             guard url.scheme == Constants.urlScheme else { continue }
             switch url.host {
-            case "lock": NotificationCenter.default.post(name: .bilakhLock, object: nil)
-            case "unlock": NotificationCenter.default.post(name: .bilakhUnlock, object: nil)
-            case "unlock-password": NotificationCenter.default.post(name: .bilakhUnlockPassword, object: nil)
-            case "toggle": NotificationCenter.default.post(name: .toggleBilakh, object: nil)
+            case "lock": NotificationCenter.default.post(name: .flipOffLock, object: nil)
+            case "unlock": NotificationCenter.default.post(name: .flipOffUnlock, object: nil)
+            case "unlock-password": NotificationCenter.default.post(name: .flipOffUnlockPassword, object: nil)
+            case "toggle": NotificationCenter.default.post(name: .toggleFlipOff, object: nil)
             #if DEBUG
-            // `bilakh://onboarding?step=3` — reopens the welcome flow on one step
+            // `flipoff://onboarding?step=3` — reopens the welcome flow on one step
             // (3 being the lock demo) without wiping `hasCompletedOnboarding` and
             // relaunching. Debug builds only; nothing in the UI exposes it.
             case "onboarding":
                 let step = URLComponents(url: url, resolvingAgainstBaseURL: false)?
                     .queryItems?.first { $0.name == "step" }?.value
                 NotificationCenter.default.post(
-                    name: .bilakhShowOnboarding, object: Int(step ?? "") ?? 0
+                    name: .flipOffShowOnboarding, object: Int(step ?? "") ?? 0
                 )
             #endif
             default: logger.warning("Unknown URL scheme: \(url.host ?? "nil")")
