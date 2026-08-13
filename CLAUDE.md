@@ -77,12 +77,19 @@ but only re-shoots displays missing from the held `backdrops` dict
 everything would, again, photograph the already-visible shield on unaffected
 displays. Only relevant in Frozen mode.
 
-**Screen Recording is requested at launch, never mid-lock.**
-`CGRequestScreenCaptureAccess()` can block on the user's answer; blocking inside
-`lock()` would freeze the app with no shield raised yet. See
-`AppDelegate.requestScreenRecordingIfNeeded()`. Denial is non-fatal everywhere —
-Live mode doesn't need the permission at all, and a denied Frozen capture just means
-gradient/ambient-blob fallback, never a failed lock.
+**Screen Recording is only ever requested by an explicit user tap on a Grant Access
+button** (`OnboardingView`'s permissions step, or Settings > Permissions). Nothing
+calls `ScreenRecordingChecker.requestAccess()` on its own. It used to fire at launch
+from `AppDelegate.requestScreenRecordingIfNeeded()`, which meant a stock install got
+a scary "FlipOff would like to record this computer's screen and audio" alert on
+every single launch for a permission it never uses: Live is the default backdrop and
+Live never captures. That helper is gone. Two properties still hold and are the
+reason not to reintroduce an automatic call anywhere:
+`CGRequestScreenCaptureAccess()` can block on the user's answer, so it must never run
+inside `lock()` (a blocked call there freezes the app with no shield raised yet), and
+denial is non-fatal everywhere, since a denied Frozen capture just falls back to the
+gradient/ambient blobs rather than failing the lock. `ScreenCapturer` only ever
+preflights (`ScreenRecordingChecker.isEnabled`), never requests.
 
 **The mugshot fires on failed unlock, never on lock.** `CameraCapturer
 .captureAndSaveOnFailedUnlock()` — gated behind `Constants.cameraOnFailedUnlockKey`

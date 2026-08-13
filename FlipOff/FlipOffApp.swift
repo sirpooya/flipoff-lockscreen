@@ -51,10 +51,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // while a lock is up.
         _ = UpdateController.shared
 
-        if UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") {
-            requestScreenRecordingIfNeeded()
-        }
-
         // Apply saved appearance
         let mode = UserDefaults.standard.integer(forKey: "appearanceMode")
         switch mode {
@@ -118,18 +114,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             logger.notice("Accessibility revoked — re-showing onboarding")
             UserDefaults.standard.set(false, forKey: "hasCompletedOnboarding")
             showOnboarding()
-        }
-    }
-
-    /// Ask for Screen Recording at launch or right after onboarding — never mid-lock.
-    /// `CGRequestScreenCaptureAccess` can block until the user answers, and blocking
-    /// inside `lock()` would freeze the app with no shield raised. Denial is
-    /// non-fatal: the lock screen falls back to its gradient, so nothing gates on
-    /// the result.
-    private func requestScreenRecordingIfNeeded() {
-        guard !ScreenRecordingChecker.isEnabled else { return }
-        DispatchQueue.global(qos: .utility).async {
-            ScreenRecordingChecker.requestAccess()
         }
     }
 

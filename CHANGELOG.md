@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.1] - 2026-08-13
+
+### Fixed
+
+- No more Screen Recording prompt on every launch. The permission is optional and
+  only the Frozen backdrop uses it, so it is now requested only when you tap Grant
+  Access in Onboarding or Settings > Permissions.
+
 ## [1.3.0] - 2026-08-12
 
 ### Changed

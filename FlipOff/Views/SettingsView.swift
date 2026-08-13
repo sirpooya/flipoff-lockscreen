@@ -780,7 +780,7 @@ struct SettingsView: View {
 
             SettingsPanel {
                 SettingsRow(
-                    "Made by Pooya Kamel",
+                    "Made by Sirpooya",
                     subtitle: "Forked from lockpaw by Erik Nielsen.",
                     subtitleSize: 11
                 ) {
