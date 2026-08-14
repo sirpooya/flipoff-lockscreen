@@ -8,16 +8,20 @@ import AVFoundation
 /// window would hand a snoop a scrub bar. This is a bare layer with no
 /// interaction surface at all.
 ///
-/// The clip plays through once and holds its last frame (`actionAtItemEnd =
-/// .none`) — a scare is a single event, and a jump scare on repeat stops being
-/// one after the second pass. Each reveal replays it from frame one, so the gag
-/// still fires fresh every time someone touches the machine.
+/// The clip plays through once — a scare is a single event, and a jump scare on
+/// repeat stops being one after the second pass. Each reveal replays it from
+/// frame one, so the gag still fires fresh every time someone touches the machine.
 struct LockVideoView: NSViewRepresentable {
     let url: URL
     /// Drives playback: true starts the clip from the beginning, false holds it on
     /// frame one (paused, not blank — see `Coordinator.setPlaying`).
     var playing: Bool = true
     var muted: Bool = false
+    /// Fired on the main queue when the clip reaches its end. The lock screen uses
+    /// this to end the reveal on the clip's own timing rather than the generic
+    /// countdown, so the shield drops straight back to the live desktop the
+    /// instant the scare is over.
+    var onFinished: (() -> Void)?
     /// `.resizeAspect` — the clip is scaled to the display's full height with
     /// nothing cropped. `.resizeAspectFill` would fill the width instead and eat
     /// the top and bottom of the frame, which on a face-filling clip cuts off the
@@ -30,6 +34,8 @@ struct LockVideoView: NSViewRepresentable {
         view.layer?.backgroundColor = NSColor.black.cgColor
         context.coordinator.attach(to: view, url: url, gravity: gravity)
         context.coordinator.setMuted(muted)
+        // Re-set every pass: SwiftUI hands over a fresh closure each render.
+        context.coordinator.onFinished = onFinished
         context.coordinator.setPlaying(playing)
         return view
     }
@@ -37,6 +43,8 @@ struct LockVideoView: NSViewRepresentable {
     func updateNSView(_ nsView: PlayerContainerView, context: Context) {
         context.coordinator.attach(to: nsView, url: url, gravity: gravity)
         context.coordinator.setMuted(muted)
+        // Re-set every pass: SwiftUI hands over a fresh closure each render.
+        context.coordinator.onFinished = onFinished
         context.coordinator.setPlaying(playing)
     }
 
@@ -69,7 +77,10 @@ struct LockVideoView: NSViewRepresentable {
     }
 
     final class Coordinator {
+        var onFinished: (() -> Void)?
+
         private var player: AVPlayer?
+        private var endObserver: NSObjectProtocol?
         private var currentURL: URL?
         private var isPlaying = false
         /// Whether this player has been asked for frame one yet. See `setPlaying`.
@@ -87,6 +98,19 @@ struct LockVideoView: NSViewRepresentable {
                 self.player = player
                 self.currentURL = url
                 self.primedFirstFrame = false
+
+                endObserver = NotificationCenter.default.addObserver(
+                    forName: .AVPlayerItemDidPlayToEndTime,
+                    object: player.currentItem,
+                    queue: .main
+                ) { [weak self] _ in
+                    guard let self, self.isPlaying else { return }
+                    // Clear first: the callback tears the reveal down, and the
+                    // resulting `setPlaying(false)` must not read as a pause of a
+                    // clip that's already finished on its own.
+                    self.isPlaying = false
+                    self.onFinished?()
+                }
             }
 
             guard let player else { return }
@@ -136,6 +160,10 @@ struct LockVideoView: NSViewRepresentable {
         }
 
         func teardown() {
+            if let endObserver {
+                NotificationCenter.default.removeObserver(endObserver)
+                self.endObserver = nil
+            }
             player?.pause()
             player = nil
             currentURL = nil

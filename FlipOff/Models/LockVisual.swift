@@ -30,10 +30,12 @@ enum LockVisual: String, CaseIterable, Identifiable {
 
     /// Subtitle for the Settings picker row — says what the choice takes away as
     /// much as what it gives, since switching to video hides three other rows.
+    /// Kept to one line: the row's text column is narrow enough that anything
+    /// longer wraps and shoves the row's height around as the picker changes.
     var settingsSubtitle: String {
         switch self {
-        case .emoji: return "A giant glyph, your message, and your lock sound."
-        case .video: return "A looping clip with its own audio, in place of all three."
+        case .emoji: return "Glyph, message, and lock sound."
+        case .video: return "A clip with its own sound."
         }
     }
 

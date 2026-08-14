@@ -53,7 +53,17 @@ struct LockScreenView: View {
                 // everything else: nothing plays until someone touches the
                 // machine, and `playing` restarts it from frame one each time.
                 if isVideoVisual, let lockVideoURL {
-                    LockVideoView(url: lockVideoURL, playing: controller.revealed)
+                    LockVideoView(
+                        url: lockVideoURL,
+                        playing: controller.revealed,
+                        // The clip's own end is the reveal's end: once it's played
+                        // through, drop straight back to the bare shield and the
+                        // live desktop rather than sitting on a frozen last frame
+                        // until the generic countdown expires. That countdown stays
+                        // as the backstop for a clip that never reaches its end
+                        // (missing codec, failed load).
+                        onFinished: { Task { @MainActor in controller.dismissReveal() } }
+                    )
                         .ignoresSafeArea()
                         .opacity(controller.revealed ? 1 : 0)
                         .animation(.easeOut(duration: 0.18), value: controller.revealed)

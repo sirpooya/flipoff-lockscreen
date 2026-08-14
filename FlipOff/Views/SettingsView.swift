@@ -307,7 +307,7 @@ struct SettingsView: View {
         if LockVideo.isMissing(lockVideoPath) {
             return "That file is gone — the built-in clip is playing instead."
         }
-        return "Loops with its own sound the moment someone touches the machine."
+        return "Plays once when someone touches the machine."
     }
 
     /// Copies the pick into the app's own folder rather than referencing it where

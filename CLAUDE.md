@@ -212,12 +212,20 @@ so the gag can be sprung repeatedly on one lock.
 - The built-in template is `Resources/Videos/creepy-face-jump-scare.mp4`, looked up
   with the same subdirectory-then-flat fallback `SoundPlayer` uses — XcodeGen
   flattens resource folders into `Resources/`.
-- **Plays once, never loops, and fits to height.** `actionAtItemEnd = .none` holds
-  the last frame after a single pass — a jump scare on repeat stops being one — and
-  each reveal replays from frame one, so the gag still fires fresh every time.
-  Gravity is `.resizeAspect` everywhere: fit the display's full height and pillarbox
-  the sides rather than `.resizeAspectFill`, which fills the width and eats the top
-  and bottom of a face-filling clip.
+- **Plays once, never loops, and fits to height.** A jump scare on repeat stops
+  being one, so there's no loop observer; each reveal replays from frame one, so the
+  gag still fires fresh every time. Gravity is `.resizeAspect` everywhere: fit the
+  display's full height and pillarbox the sides rather than `.resizeAspectFill`,
+  which fills the width and eats the top and bottom of a face-filling clip.
+- **The clip's end ends the reveal.** `LockVideoView.onFinished` (an
+  `AVPlayerItemDidPlayToEndTime` observer) calls `LockController.dismissReveal()`,
+  so the shield drops back to the bare live desktop the moment the scare is over
+  instead of sitting on a frozen last frame until `revealVisibleNs` expires. That
+  5s countdown is still armed as the backstop for a clip that never reaches its end
+  — a missing codec or a failed load — so a broken video can't strand the reveal.
+  The observer clears `isPlaying` *before* invoking the callback: the callback tears
+  the reveal down, and the resulting `setPlaying(false)` must not be read as pausing
+  a clip that already finished on its own.
 - The Settings preview card is a *paused* first frame (`playing: false`), muted —
   that's where the scare should not go off. A player that has never played renders
   black, so `Coordinator.setPlaying` does one exact-tolerance seek to zero to make a
