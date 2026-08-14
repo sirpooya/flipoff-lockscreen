@@ -2,12 +2,26 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-14
+
+### Added
+
+- **Video lock screens.** A new Emoji/Video switch at the top of Settings > Lock
+  Screen picks what the reveal shows. Video mode plays a clip instead of the emoji,
+  message, and lock sound, and ships with a built-in jump scare.
+- Pick your own clip from the Video dropdown, which lists the built-in one plus
+  everything you have imported. Imported videos are copied into FlipOff's own
+  folder, so moving or deleting the original will not break your lock screen, and
+  a trash button removes ones you no longer want.
+
 ### Changed
 
 - The backdrop is always the live desktop now. The "Behind the lock" Live/Frozen
   switch is gone from Settings, and with it the frozen-screenshot path: FlipOff no
   longer uses Screen Recording at all, so that permission row is gone from
   Onboarding and Settings > Permissions too.
+- "Camera on failed unlock" now sits in its own section, split out from the
+  lock-screen appearance settings.
 
 ## [1.3.1] - 2026-08-13
 
