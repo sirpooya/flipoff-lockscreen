@@ -16,15 +16,13 @@ enum Constants {
     static let cameraOnFailedUnlockKey = "cameraOnFailedUnlock"
     static let defaultCameraOnFailedUnlock = true
 
-    /// Treatment applied to the frozen screenshot behind the lock UI. Exposed as
-    /// defaults so the dim can be dialed without a rebuild — at 0 the desktop shows
-    /// through exactly as captured, which makes white lock text hard to read over
-    /// light content.
+    /// The reveal scrim laid over the live desktop once the lock announces itself.
+    /// Exposed as a default so the dim can be dialed without a rebuild — at 0 the
+    /// desktop shows through untouched, which makes white lock text hard to read
+    /// over light content.
     enum Backdrop {
         static let dimKey = "backdropDim"
-        static let blurKey = "backdropBlur"
         static let defaultDim: Double = 0.35
-        static let defaultBlur: Double = 0
     }
 
     enum Timing {
@@ -44,7 +42,6 @@ enum Constants {
         static let pingGlowRest: CGFloat = 0.08                       // faint glow held after the breaths until unlock — paired with the "agent needs you" hint
         static let cursorIdleHide: TimeInterval = 1.5                 // seconds of stillness before the pointer hides again while locked
         static let agentSetupMinSpin: TimeInterval = 1.2              // seconds; floor on the Settings connect-spinner so success registers
-        static let captureTimeout: TimeInterval = 2.0                 // seconds; ceiling on the pre-lock screenshot so a hung capture can't strand the .locking state
     }
 
     enum Anim {

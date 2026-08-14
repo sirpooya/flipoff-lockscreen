@@ -18,7 +18,6 @@ Forked from [lockpaw](https://github.com/sorkila/lockpaw) (MIT). Bundle id prefi
 FlipOffApp (SwiftUI @main)
   └─ AppDelegate: hotkey lifecycle, onboarding, URL scheme, distributed-notification bridge
 LockController (ObservableObject, single source of truth for lock state)
-  ├─ ScreenCapturer      — SCK screenshot per display, only in Frozen backdrop mode
   ├─ OverlayWindowManager — one NSWindow per NSScreen at CGShieldingWindowLevel()
   ├─ InputBlocker        — CGEventTap swallowing keyboard/scroll/tablet input
   ├─ Authenticator       — Touch ID / password via LocalAuthentication
@@ -31,65 +30,46 @@ HotkeyManager — global hotkey registration (separate from InputBlocker's tap)
 locked → unlocking → unlocked`, plus a `canTransition` guard. Everything in
 `LockController` goes through `transitionTo`, never sets `state` directly.
 
-## Backdrop: Live vs. Frozen
+## Backdrop: always live, never captured
 
-`BackdropMode` (Models/BackdropMode.swift) picks what sits behind the lock UI, and
-**`.live` is the default**, not a screenshot:
+What sits behind the lock UI is the real desktop, and that is not configurable. The
+shield windows stay transparent and everything underneath keeps rendering:
+notifications slide in, videos play, spinners spin. Nothing below is reachable
+regardless — the shield window at `CGShieldingWindowLevel()` swallows clicks by being
+there, and `InputBlocker`'s event tap eats the keyboard — but visually the machine
+looks completely unlocked. This is the bait: a lock that doesn't announce itself.
 
-- **`.live`** — the shield windows stay transparent and the real desktop keeps
-  rendering underneath: notifications slide in, videos play, spinners spin. Nothing
-  below is reachable regardless — the shield window at `CGShieldingWindowLevel()`
-  swallows clicks by being there, and `InputBlocker`'s event tap eats the keyboard —
-  but visually the machine looks completely unlocked. This is the bait: a lock that
-  doesn't announce itself. No Screen Recording permission needed.
-- **`.frozen`** — the original lockpaw-derived behavior. `ScreenCapturer
-  .captureAllDisplays()` photographs every display and the still image replaces the
-  live view. Needs Screen Recording.
+A `BackdropMode` enum used to offer a `.frozen` alternative (the original
+lockpaw-derived behavior: photograph every display with ScreenCaptureKit before the
+shield goes up and show the still). It's gone, along with `ScreenCapturer`,
+`BackdropView`, `ScreenRecordingChecker`, and the Screen Recording rows in
+onboarding and Settings > Permissions. **FlipOff no longer touches Screen Recording
+at all** — don't reintroduce a capture path without reintroducing the permission
+plumbing with it, and note that `CGRequestScreenCaptureAccess()` can block on the
+user's answer, so it could never be called from inside `lock()` anyway (a blocked
+call there freezes the app with no shield raised yet).
 
-The reveal scrim (`LockScreenView`'s dim/blur over the backdrop) is keyed to
-`controller.revealed`, **never** to the lock state itself — dimming at lock time
-would give away that the screen is covered before anyone touches it, defeating the
-entire bait. The scrim only fades in once the mascot pops, where it earns its keep
-making the message legible.
+The reveal scrim (`LockScreenView`'s `Constants.Backdrop.dimKey` black overlay) is
+keyed to `controller.revealed`, **never** to the lock state itself — dimming at lock
+time would give away that the screen is covered before anyone touches it, defeating
+the entire bait. The scrim only fades in once the mascot pops, where it earns its
+keep making the message legible. Secondary displays get the same scrim and nothing
+else (`AmbientScreenView`, wrapped in `AmbientBackdropHost` so they observe
+`revealed` and dim in step with the primary).
 
 ## Load-bearing ordering
 
-**Capture before shield, and only in Frozen mode.** When `BackdropMode.current ==
-.frozen`, `ScreenCapturer.captureAllDisplays()` must run and complete *before*
-`OverlayWindowManager.showOverlay` — the overlay sits at `CGShieldingWindowLevel()`,
-so a capture taken after the windows are up would photograph the lock screen itself,
-not the desktop. `LockController.lock()` awaits the capture in a `Task`, then calls
-`presentOverlay(backdrops:)`. If a force-unlock races the capture and wins,
-`presentOverlay` checks `state == .locking` and bails without raising a shield the
-user already escaped. In Live mode this whole path is skipped — there's nothing to
-capture.
+**Nothing runs between `lock()` and the shield.** `LockController.lock()` calls
+`presentOverlay()` synchronously — there is no capture round trip to await, which is
+what the old Frozen path needed. `presentOverlay` still guards `state == .locking`
+and bails otherwise: a force-unlock can land between the transition and the window
+creation, and raising a shield the user already escaped would be worse than not
+locking.
 
-**Match displays by ID, never by index or frame.** `NSScreen.screens` reorders on
-hot-plug; `CGDirectDisplayID` (via `NSScreen.displayID`, `Utilities: NSScreen`
-extension in ScreenCapturer.swift) is the only stable key shared between
-`NSScreen` and `SCDisplay`. Backdrops are stored `[CGDirectDisplayID: CGImage]` in
-`OverlayWindowManager`, matched at window-creation time.
-
-**Hot-plug reuses cached backdrops, never re-captures wholesale.** The screen-change
-handler in `OverlayWindowManager` recreates all windows (existing lockpaw behavior)
-but only re-shoots displays missing from the held `backdrops` dict
-(`displayIDsMissingBackdrop()` → `ScreenCapturer.captureDisplays(_:)`). Re-capturing
-everything would, again, photograph the already-visible shield on unaffected
-displays. Only relevant in Frozen mode.
-
-**Screen Recording is only ever requested by an explicit user tap on a Grant Access
-button** (`OnboardingView`'s permissions step, or Settings > Permissions). Nothing
-calls `ScreenRecordingChecker.requestAccess()` on its own. It used to fire at launch
-from `AppDelegate.requestScreenRecordingIfNeeded()`, which meant a stock install got
-a scary "FlipOff would like to record this computer's screen and audio" alert on
-every single launch for a permission it never uses: Live is the default backdrop and
-Live never captures. That helper is gone. Two properties still hold and are the
-reason not to reintroduce an automatic call anywhere:
-`CGRequestScreenCaptureAccess()` can block on the user's answer, so it must never run
-inside `lock()` (a blocked call there freezes the app with no shield raised yet), and
-denial is non-fatal everywhere, since a denied Frozen capture just falls back to the
-gradient/ambient blobs rather than failing the lock. `ScreenCapturer` only ever
-preflights (`ScreenRecordingChecker.isEnabled`), never requests.
+**Hot-plug just recreates windows.** The screen-change handler in
+`OverlayWindowManager` tears down every window and rebuilds them (existing lockpaw
+behavior). A display attached mid-lock needs nothing special — its shield is
+transparent over its own live desktop like every other one.
 
 **The mugshot fires on failed unlock, never on lock.** `CameraCapturer
 .captureAndSaveOnFailedUnlock()` — gated behind `Constants.cameraOnFailedUnlockKey`
@@ -198,12 +178,50 @@ the release on a missing `.icns`, a missing plist key, or a leaked raw `.icon`.
 
 ## Mascot / emoji
 
-`Models/Mascot.swift` has three cases: `.dog`, `.cat` (original lockpaw art), and
-`.emoji` (default). `EmojiMascot` (same file) stores the chosen glyph separately —
-switching mascots never forgets your emoji. Rendered via `LockScreenView.mascotGlyph`,
-a `@ViewBuilder` that branches on `isEmojiMascot`: images use `.scaledToFit()`,
-the emoji uses a `GeometryReader` + `.font(.system(size:))` sized to ~82% of the
-frame (Text has no scale-to-fit).
+`Models/Mascot.swift` is down to `EmojiMascot`, which stores the chosen glyph —
+the original lockpaw `.dog`/`.cat` art is gone, since an emoji is system-rendered
+text and scales to any display with zero pixelation. Rendered via
+`LockScreenView.mascotGlyph`, a `GeometryReader` + `.font(.system(size:))` sized
+to ~82% of the frame (Text has no scale-to-fit).
+
+## Lock visual: Emoji vs Video
+
+`LockVisual` (Models/LockVisual.swift) picks what the *reveal* shows. `.emoji` is
+the default and the historical behavior — glyph, message, lock sound. `.video`
+replaces all three with a looping clip, which is why Settings **hides** the emoji,
+message, and sound rows in that mode rather than leaving them to compete for the
+same beat, and why `LockController.revealOnFirstInput()` skips `SoundPlayer.play`
+when `LockVisual.current == .video`. The reveal rule itself is unchanged: the
+shield is still bare until the first blocked input, and the clip starts from frame
+one on every reveal (`LockVideoView`'s `playing` seeks to `.zero` before playing),
+so the gag can be sprung repeatedly on one lock.
+
+- **`AVPlayerLayer`, never AVKit's `VideoPlayer`/`AVPlayerView`.** Both of those
+  ship playback controls — a scrub bar on the shield is a UI surface handed to
+  whoever's poking at the machine. `LockVideoView` is a raw layer whose host view
+  returns `nil` from `hitTest`, so it can't steal a hit either.
+- **Imported clips are copied into Application Support, not referenced in place.**
+  `LockVideo.importVideo(from:)` copies to `~/Library/Application
+  Support/FlipOff/Videos/` under a UUID-suffixed name. The app isn't sandboxed, so
+  a bare path *would* work — but a lock screen that degrades to a black rectangle
+  because the source moved out of Downloads is worse than no video, and the clips
+  are small. `resolvedURL(from:)` falls back to the bundled template if the copy
+  goes missing anyway; `displayName(for:)` deliberately keeps naming the *picked*
+  file in that case, so Settings flags the breakage instead of quietly claiming
+  the template was the choice all along.
+- The built-in template is `Resources/Videos/creepy-face-jump-scare.mp4`, looked up
+  with the same subdirectory-then-flat fallback `SoundPlayer` uses — XcodeGen
+  flattens resource folders into `Resources/`.
+- **Plays once, never loops, and fits to height.** `actionAtItemEnd = .none` holds
+  the last frame after a single pass — a jump scare on repeat stops being one — and
+  each reveal replays from frame one, so the gag still fires fresh every time.
+  Gravity is `.resizeAspect` everywhere: fit the display's full height and pillarbox
+  the sides rather than `.resizeAspectFill`, which fills the width and eats the top
+  and bottom of a face-filling clip.
+- The Settings preview card is a *paused* first frame (`playing: false`), muted —
+  that's where the scare should not go off. A player that has never played renders
+  black, so `Coordinator.setPlaying` does one exact-tolerance seek to zero to make a
+  paused layer show frame one instead of a black rectangle.
 
 ## Things intentionally NOT done
 

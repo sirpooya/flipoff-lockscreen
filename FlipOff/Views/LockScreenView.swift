@@ -9,17 +9,14 @@ struct LockScreenView: View {
     @ObservedObject var controller: LockController
     var screenRole: ScreenRole = .primary
     var phaseOffset: CGFloat = 0
-    /// Frozen screenshot of this display, taken just before the lock. Nil when
-    /// Screen Recording is denied or the capture failed — the gradient stands in.
-    var backdrop: CGImage?
 
     @AppStorage("showMessage") private var showMessage = true
     @AppStorage("lockMessage") private var message = Constants.defaultLockMessage
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
+    @AppStorage(LockVisual.storageKey) private var lockVisual = LockVisual.defaultValue
+    @AppStorage(LockVideo.storageKey) private var lockVideoPath = LockVideo.defaultValue
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.Backdrop.dimKey) private var backdropDim = Constants.Backdrop.defaultDim
-    @AppStorage(Constants.Backdrop.blurKey) private var backdropBlur = Constants.Backdrop.defaultBlur
-    @AppStorage(BackdropMode.storageKey) private var backdropMode = BackdropMode.defaultValue
 
     @State private var phase: CGFloat = 0
     @State private var appeared = false
@@ -37,8 +34,9 @@ struct LockScreenView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var breathe: CGFloat { reduceMotion ? 0 : sin((phase + phaseOffset) * .pi * 2 * 0.2) }
-    private var drift: CGFloat { reduceMotion ? 0 : sin((phase + phaseOffset) * .pi * 2 * 0.05) }
     private var resolvedEmoji: String { EmojiMascot.resolved(from: mascotEmoji) }
+    private var isVideoVisual: Bool { lockVisual == .video }
+    private var lockVideoURL: URL? { LockVideo.resolvedURL(from: lockVideoPath) }
 
     var body: some View {
         GeometryReader { geo in
@@ -49,6 +47,20 @@ struct LockScreenView: View {
             ZStack {
                 background(geo: geo)
 
+                // Video visual — the clip takes the whole display, so it sits
+                // above the backdrop and replaces the mascot/message entirely
+                // rather than sharing the frame with them. Same reveal rule as
+                // everything else: nothing plays until someone touches the
+                // machine, and `playing` restarts it from frame one each time.
+                if isVideoVisual, let lockVideoURL {
+                    LockVideoView(url: lockVideoURL, playing: controller.revealed)
+                        .ignoresSafeArea()
+                        .opacity(controller.revealed ? 1 : 0)
+                        .animation(.easeOut(duration: 0.18), value: controller.revealed)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+
                 // Content group — positioned at ~42% from top (slightly below center)
                 VStack(spacing: 0) {
                     Spacer().frame(minHeight: 0)
@@ -57,7 +69,8 @@ struct LockScreenView: View {
                     // Mascot + message + time as a tight cohesive group
                     VStack(spacing: unit * 1.2) {
 
-                        // Mascot
+                        // Mascot — video mode has no glyph; the clip is the visual.
+                        if !isVideoVisual {
                         ZStack {
                             if controller.unlockSucceeded {
                                 // Success animation: mascot scales up and fades
@@ -84,8 +97,11 @@ struct LockScreenView: View {
                         .allowsHitTesting(false)
                         .accessibilityHidden(true)
                         .animation(Constants.Anim.gentle, value: controller.unlockSucceeded)
+                        }
 
-                        // Message
+                        // Message — the authenticating/error states still show in
+                        // video mode; only the user's own lock message steps aside,
+                        // since the clip is carrying the message now.
                         Group {
                             if controller.unlockSucceeded {
                                 EmptyView()
@@ -101,7 +117,7 @@ struct LockScreenView: View {
                                     .fontWeight(.medium)
                                     .foregroundStyle(Color("FlipOffError"))
                                     .shadow(color: Color("FlipOffError").opacity(0.15), radius: 8)
-                            } else if showMessage {
+                            } else if showMessage, !isVideoVisual {
                                 // Big and white with a bold outline, not the quiet
                                 // small white body type the other states use — this
                                 // is the punchline of the prank, so it lands like a
@@ -353,42 +369,20 @@ struct LockScreenView: View {
 
     private func background(geo: GeometryProxy) -> some View {
         ZStack {
-            if let backdrop {
-                // The frozen desktop replaces the gradient wholesale — the drifting
-                // color pools would read as smudges over real content.
-                //
-                // Undimmed and unblurred until revealed: the whole point is that the
-                // screen looks untouched, so a scrim would give the lock away before
-                // anyone touches the machine. The dim fades in with the mascot, where
-                // it earns its keep making the white text readable.
-                BackdropView(
-                    image: backdrop,
-                    dim: controller.revealed ? backdropDim : 0,
-                    blur: controller.revealed ? backdropBlur : 0
-                )
-            } else if backdropMode == .live {
-                // Nothing to draw — the window is transparent and the live desktop
-                // shows through it. Only the reveal scrim, so the mascot and message
-                // stay legible over whatever happens to be on screen. No blur: there
-                // is no image to blur, and a material here would freeze the motion
-                // that makes this mode worth having.
-                Color.black
-                    .opacity(controller.revealed ? backdropDim : 0)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            } else {
-                LinearGradient(
-                    colors: [Color(red: 0.01, green: 0.005, blue: 0.025), .black, Color(red: 0.01, green: 0.005, blue: 0.02)],
-                    startPoint: .top, endPoint: .bottom
-                ).ignoresSafeArea()
-
-                RadialGradient(
-                    colors: [Color("FlipOffTeal").opacity(0.015 + breathe * 0.005), .clear],
-                    center: .bottom, startRadius: 0, endRadius: 500
-                ).ignoresSafeArea().allowsHitTesting(false)
-
-                if !reduceMotion { colorPools(geo: geo) }
-            }
+            // Nothing to draw — the window is transparent and the live desktop
+            // shows through it. Only the reveal scrim, so the mascot and message
+            // stay legible over whatever happens to be on screen. No blur: there
+            // is no image to blur, and a material here would freeze the motion
+            // that makes the live backdrop worth having.
+            //
+            // Undimmed until revealed: the whole point is that the screen looks
+            // untouched, so a scrim would give the lock away before anyone touches
+            // the machine. The dim fades in with the mascot, where it earns its
+            // keep making the white text readable.
+            Color.black
+                .opacity(controller.revealed ? backdropDim : 0)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
 
             // Attention glow — fires on an agent ping. Bright and full-screen so it
             // reads from across a room while the screen stays covered.
@@ -411,21 +405,4 @@ struct LockScreenView: View {
         }
     }
 
-    private func colorPools(geo: GeometryProxy) -> some View {
-        ZStack {
-            Circle()
-                .fill(RadialGradient(colors: [Color("FlipOffTeal").opacity(0.04 + breathe * 0.04), .clear], center: .center, startRadius: 0, endRadius: 300 + breathe * 40))
-                .frame(width: 600, height: 600)
-                .position(x: geo.size.width * 0.35 + drift * 10, y: geo.size.height * 0.3 + breathe * 8)
-                .blur(radius: 80)
-
-            Circle()
-                .fill(RadialGradient(colors: [Color("FlipOffAmber").opacity(0.02 + drift * 0.025), .clear], center: .center, startRadius: 0, endRadius: 250 + drift * 30))
-                .frame(width: 500, height: 500)
-                .position(x: geo.size.width * 0.65 - drift * 8, y: geo.size.height * 0.65 - breathe * 6)
-                .blur(radius: 60)
-        }
-        .opacity(appeared ? 1 : 0)
-        .allowsHitTesting(false)
-    }
 }

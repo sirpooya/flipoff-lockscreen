@@ -252,45 +252,32 @@ class LockController: ObservableObject {
         // someone actually trying to use the machine.
         sleepPreventer.preventSleep()
 
-        // Live mode has nothing to photograph — the shield stays transparent and the
-        // real desktop shows through it. Straight to the overlay, no capture round
-        // trip and no Screen Recording permission involved.
-        guard BackdropMode.current.needsScreenCapture else {
-            presentOverlay(backdrops: [:])
-            return
-        }
-
-        // Photograph the desktop *before* the shield goes up — the overlay sits at
-        // CGShieldingWindowLevel, so a capture taken afterwards would show the lock
-        // screen instead of the desktop. Bounded internally by captureTimeout so a
-        // stalled capture can't strand us in .locking with a dead hotkey.
-        Task { @MainActor in
-            let backdrops = await ScreenCapturer.captureAllDisplays()
-            self.presentOverlay(backdrops: backdrops)
-        }
+        presentOverlay()
     }
 
-    /// Second half of `lock()`, resumed once the screenshots are in hand.
-    private func presentOverlay(backdrops: [CGDirectDisplayID: CGImage]) {
-        // A force-unlock or a failed transition during the capture window leaves
+    /// Second half of `lock()`. There is nothing to photograph — the shield windows
+    /// stay transparent and the real desktop keeps rendering underneath — so this
+    /// runs straight through with no capture round trip and no Screen Recording
+    /// permission involved.
+    private func presentOverlay() {
+        // A force-unlock or a failed transition between `lock()` and here leaves
         // .locking behind — don't raise a shield the user already escaped.
         guard state == .locking else {
-            logger.info("Lock aborted during capture — state is \(String(describing: self.state))")
+            logger.info("Lock aborted before the shield went up — state is \(String(describing: self.state))")
             sleepPreventer.allowSleep()
             return
         }
 
-        guard overlayManager.showOverlay(backdrops: backdrops, contentFactory: { [weak self] index, isPrimary, backdrop in
+        guard overlayManager.showOverlay(contentFactory: { [weak self] index, isPrimary in
             guard let self else { return AnyView(Color.black) }
             if isPrimary {
                 return AnyView(LockScreenView(
                     controller: self,
                     screenRole: .primary,
-                    phaseOffset: CGFloat(index) * 0.15,
-                    backdrop: backdrop
+                    phaseOffset: CGFloat(index) * 0.15
                 ))
             } else {
-                return AnyView(AmbientBackdropHost(controller: self, index: index, backdrop: backdrop))
+                return AnyView(AmbientBackdropHost(controller: self))
             }
         }) else {
             logger.error("Lock failed — no screens available for overlay")
@@ -416,7 +403,12 @@ class LockController: ObservableObject {
 
         if !revealed {
             revealed = true
-            SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
+            // Video mode brings its own audio track, and Settings hides the sound
+            // picker there for the same reason — firing the lock sound on top of
+            // it would put two unrelated noises on the same beat.
+            if LockVisual.current != .video {
+                SoundPlayer.play(LockSound.resolved(from: UserDefaults.standard.string(forKey: LockSound.storageKey) ?? LockSound.defaultValue))
+            }
             // This — someone touching the machine while it's locked — IS the
             // "wrong attempt" for this app, not a resolved Touch ID/password
             // failure. Gating on `handleAuthFailure()` alone meant the shot never

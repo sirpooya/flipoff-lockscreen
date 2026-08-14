@@ -20,6 +20,6 @@ xcodebuild -scheme FlipOff -configuration Debug build
 ```
 
 Grant **Accessibility** when prompted — that's what lets the shield swallow
-keyboard and trackpad input. Camera access is optional (powers the mugshot) and
-Screen Recording is only needed if you switch the backdrop to Frozen mode.
+keyboard and trackpad input. Camera access is optional (powers the mugshot). No
+Screen Recording: the lock shows the live desktop and never captures it.
 Menu-bar only, no dock icon.

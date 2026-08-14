@@ -15,12 +15,7 @@ class OverlayWindowManager {
     private var windows: [NSWindow] = []
     private var screenObserver: Any?
     private var sessionObserver: Any?
-    private var contentFactory: ((Int, Bool, CGImage?) -> AnyView)?
-    /// Frozen screenshots keyed by display ID, captured before the overlay went up.
-    /// Held across `createWindows` calls on purpose: the hot-plug path re-runs
-    /// window creation while the shield is already on screen, so re-capturing there
-    /// would photograph the lock screen itself.
-    private var backdrops: [CGDirectDisplayID: CGImage] = [:]
+    private var contentFactory: ((Int, Bool) -> AnyView)?
     private var screenChangeWork: DispatchWorkItem?
     private var mouseMoveMonitors: [Any] = []
     private var cursorRehideTimer: Timer?
@@ -29,13 +24,10 @@ class OverlayWindowManager {
 
     @discardableResult
     func showOverlay(
-        backdrops images: [CGDirectDisplayID: CGImage] = [:],
-        contentFactory factory: @escaping (Int, Bool, CGImage?) -> AnyView
+        contentFactory factory: @escaping (Int, Bool) -> AnyView
     ) -> Bool {
         contentFactory = factory
-        // Assign after the teardown — dismissOverlay releases the previous stills.
         dismissOverlay()
-        backdrops = images
         createWindows()
         guard !windows.isEmpty else {
             logger.error("showOverlay failed — no windows created")
@@ -51,9 +43,6 @@ class OverlayWindowManager {
         stopObservingScreenChanges()
         stopObservingSessionChanges()
         stopCursorConcealment()
-        // Full-resolution stills are large (~60 MB per 5K display) — don't hold
-        // them for the whole unlocked session.
-        backdrops.removeAll()
 
         if animated {
             let windowsToClose = windows
@@ -83,22 +72,6 @@ class OverlayWindowManager {
         }
     }
 
-    /// Merges freshly captured stills into the held set — used when a display is
-    /// hot-plugged while locked, so the new screen gets its own screenshot instead
-    /// of falling back to the ambient gradient for the rest of the session.
-    func mergeBackdrops(_ images: [CGDirectDisplayID: CGImage]) {
-        backdrops.merge(images) { _, new in new }
-    }
-
-    /// Display IDs for screens currently on record that have no backdrop yet —
-    /// what a hot-plug handler needs to capture before recreating windows.
-    func displayIDsMissingBackdrop() -> [CGDirectDisplayID] {
-        NSScreen.screens.compactMap { screen -> CGDirectDisplayID? in
-            guard let id = screen.displayID, backdrops[id] == nil else { return nil }
-            return id
-        }
-    }
-
     func allowSystemDialogs() {
         for window in windows { window.level = .statusBar }
     }
@@ -120,13 +93,9 @@ class OverlayWindowManager {
 
         for (index, screen) in screens.enumerated() {
             let isPrimary = (index == 0)
-            // Match by display ID, never by index: a display attached while locked
-            // can reorder NSScreen.screens, and pairing by position would put one
-            // screen's screenshot on another screen.
-            let backdrop = screen.displayID.flatMap { backdrops[$0] }
-            let content = factory(index, isPrimary, backdrop)
+            let content = factory(index, isPrimary)
             let frame = screen.frame
-            logger.info("Creating overlay — screen: \(screen.localizedName), role: \(isPrimary ? "primary" : "ambient"), frame: \(frame.debugDescription), scale: \(screen.backingScaleFactor), backdrop: \(backdrop != nil)")
+            logger.info("Creating overlay — screen: \(screen.localizedName), role: \(isPrimary ? "primary" : "ambient"), frame: \(frame.debugDescription), scale: \(screen.backingScaleFactor)")
             let window = OverlayWindow(
                 contentRect: frame,
                 styleMask: .borderless,
@@ -236,26 +205,10 @@ class OverlayWindowManager {
                 }
                 self.windows.removeAll()
 
-                // A display attached mid-lock has no backdrop yet — captured now,
-                // before the new window for it goes up, or it would just show its
-                // own shield. A display that was merely reconfigured (resolution,
-                // arrangement) already has one and is skipped.
-                // Live mode never holds stills, so every display looks "missing" —
-                // capturing here would photograph the shield that's already up and
-                // paste it over the transparent overlay.
-                let missing = BackdropMode.current.needsScreenCapture
-                    ? self.displayIDsMissingBackdrop()
-                    : []
-                if missing.isEmpty {
-                    self.createWindows()
-                } else {
-                    Task { @MainActor [weak self] in
-                        guard let self else { return }
-                        let fresh = await ScreenCapturer.captureDisplays(missing)
-                        self.mergeBackdrops(fresh)
-                        self.createWindows()
-                    }
-                }
+                // Nothing to re-capture: every shield is transparent, so a display
+                // attached mid-lock just gets its own window over its own live
+                // desktop.
+                self.createWindows()
             }
             self.screenChangeWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)

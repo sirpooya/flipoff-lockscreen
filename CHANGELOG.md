@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+
+- The backdrop is always the live desktop now. The "Behind the lock" Live/Frozen
+  switch is gone from Settings, and with it the frozen-screenshot path: FlipOff no
+  longer uses Screen Recording at all, so that permission row is gone from
+  Onboarding and Settings > Permissions too.
+
 ## [1.3.1] - 2026-08-13
 
 ### Fixed

@@ -8,14 +8,8 @@ import SwiftUI
 /// reveals itself, keeping every screen's dim in step with the primary.
 struct AmbientBackdropHost: View {
     @ObservedObject var controller: LockController
-    let index: Int
-    let backdrop: CGImage?
 
     var body: some View {
-        AmbientScreenView(
-            phaseOffset: CGFloat(index) * 0.15,
-            backdrop: backdrop,
-            revealed: controller.revealed
-        )
+        AmbientScreenView(revealed: controller.revealed)
     }
 }

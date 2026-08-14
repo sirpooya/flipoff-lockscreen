@@ -60,13 +60,15 @@ struct SettingsView: View {
     @AppStorage("appearanceMode") private var appearanceMode = 0 // 0=System, 1=Light, 2=Dark
     @AppStorage(LockSound.storageKey) private var selectedLockSound = LockSound.defaultValue
     @AppStorage(EmojiMascot.storageKey) private var mascotEmoji = EmojiMascot.defaultValue
+    @AppStorage(LockVisual.storageKey) private var lockVisual = LockVisual.defaultValue
+    @AppStorage(LockVideo.storageKey) private var lockVideoPath = LockVideo.defaultValue
+    @State private var videoImportError: String?
     @State private var customEmojiInput = ""
     @FocusState private var customEmojiFieldFocused: Bool
     @AppStorage("hotkeyDisplay") private var hotkeyDisplay = HotkeyConfig.defaultDisplay
     @AppStorage(HotkeyConfig.requireAuthenticationToUnlockKey) private var requiresAuthenticationToUnlock = HotkeyConfig.defaultRequireAuthenticationToUnlock
     @AppStorage(Constants.agentPingSoundKey) private var agentPingSound = false
     @AppStorage(Constants.cameraOnFailedUnlockKey) private var cameraOnFailedUnlock = Constants.defaultCameraOnFailedUnlock
-    @AppStorage(BackdropMode.storageKey) private var backdropMode = BackdropMode.defaultValue
 
 
     @ObservedObject private var updater = UpdateController.shared
@@ -76,7 +78,6 @@ struct SettingsView: View {
     @State private var hotkeyConflict: String?
     @State private var keyMonitor: Any?
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
-    @State private var screenRecordingGranted = ScreenRecordingChecker.isEnabled
     @State private var cameraGranted = CameraChecker.isEnabled
     @State private var accessibilityTimer: Timer?
     @State private var copiedItem: String?
@@ -157,62 +158,69 @@ struct SettingsView: View {
             mascotPreview
 
             SettingsPanel {
-                emojiPickerRow
-
-                SettingsDivider()
-
-                SettingsRow("Behind the lock", subtitle: backdropMode.subtitle) {
+                // The visual picker leads the panel: everything below it belongs
+                // to one branch or the other, so choosing here is what makes the
+                // rest of the section make sense.
+                SettingsRow("The reveal", subtitle: lockVisual.settingsSubtitle) {
                     SettingsSegmentedControl(
-                        selection: $backdropMode,
-                        options: BackdropMode.allCases.map { ($0.title, $0) },
+                        selection: $lockVisual,
+                        options: LockVisual.allCases.map { ($0.title, $0) },
                         width: 200
                     )
                 }
 
                 SettingsDivider()
 
-                SettingsRow("Message", subtitle: "Shown beneath the mascot. Turn off to hide it.") {
-                    HStack(spacing: 10) {
-                        SettingsSwitch(isOn: $showMessage)
+                if lockVisual == .video {
+                    videoPickerRow
+                } else {
+                    emojiPickerRow
 
-                        TextField("Lock message", text: $message, axis: .vertical)
-                            .lineLimit(1...3)
-                            .multilineTextAlignment(.leading)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.system(size: 12))
-                            .frame(width: 200)
-                            .disabled(!showMessage)
-                            .opacity(showMessage ? 1 : 0.4)
-                            .onChange(of: message) { _, newValue in
-                                if newValue.count > 120 {
-                                    message = String(newValue.prefix(120))
+                    SettingsDivider()
+
+                    SettingsRow("Message", subtitle: "Shown beneath the mascot. Turn off to hide it.") {
+                        HStack(spacing: 10) {
+                            SettingsSwitch(isOn: $showMessage)
+
+                            TextField("Lock message", text: $message, axis: .vertical)
+                                .lineLimit(1...3)
+                                .multilineTextAlignment(.leading)
+                                .textFieldStyle(.roundedBorder)
+                                .font(.system(size: 12))
+                                .frame(width: 200)
+                                .disabled(!showMessage)
+                                .opacity(showMessage ? 1 : 0.4)
+                                .onChange(of: message) { _, newValue in
+                                    if newValue.count > 120 {
+                                        message = String(newValue.prefix(120))
+                                    }
                                 }
-                            }
-                    }
-                }
-
-                SettingsDivider()
-
-                SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks.") {
-                    HStack(spacing: 10) {
-                        SettingsDropdown(
-                            selection: $selectedLockSound,
-                            options: LockSound.allCases.map { ($0.displayName, $0.rawValue) },
-                            width: 120
-                        )
-
-                        Button {
-                            SoundPlayer.play(LockSound.resolved(from: selectedLockSound))
-                        } label: {
-                            Image(systemName: "play.fill")
                         }
-                        .buttonStyle(.bordered)
-                        .disabled(LockSound.resolved(from: selectedLockSound) == .none)
+                    }
+
+                    SettingsDivider()
+
+                    SettingsRow("Lock sound", subtitle: "Plays the moment the screen locks.") {
+                        HStack(spacing: 10) {
+                            SettingsDropdown(
+                                selection: $selectedLockSound,
+                                options: LockSound.allCases.map { ($0.displayName, $0.rawValue) },
+                                width: 120
+                            )
+
+                            Button {
+                                SoundPlayer.play(LockSound.resolved(from: selectedLockSound))
+                            } label: {
+                                Image(systemName: "play.fill")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(LockSound.resolved(from: selectedLockSound) == .none)
+                        }
                     }
                 }
+            }
 
-                SettingsDivider()
-
+            SettingsPanel {
                 SettingsRow(
                     "Camera on failed unlock",
                     subtitle: "Saves a photo of the attempt to Downloads."
@@ -237,6 +245,80 @@ struct SettingsView: View {
                     .controlSize(.small)
                 }
             }
+        }
+    }
+
+    /// Video chooser: the built-in clip and every imported one in a single menu,
+    /// with importing as its last entry. Same shape as the lock sound row above
+    /// it, so the two read as the same kind of choice.
+    private var videoPickerRow: some View {
+        SettingsRow(
+            "Video",
+            subtitle: videoRowSubtitle
+        ) {
+            HStack(spacing: 8) {
+                SettingsDropdown(
+                    selection: videoSelection,
+                    options: videoMenuOptions,
+                    width: 190
+                )
+
+                // Only imports can be removed; the template is the floor video
+                // mode always falls back to.
+                if !lockVideoPath.isEmpty {
+                    Button {
+                        LockVideo.deleteImport(at: lockVideoPath)
+                        lockVideoPath = ""
+                        videoImportError = nil
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Remove this video from FlipOff")
+                }
+            }
+        }
+    }
+
+    private var videoMenuOptions: [(String, String)] {
+        LockVideo.libraryOptions(selecting: lockVideoPath).map { ($0.title, $0.path) }
+            + [("Choose from Mac\u{2026}", LockVideo.chooseSentinel)]
+    }
+
+    /// Intercepts the sentinel so picking "Choose from Mac…" opens the panel
+    /// instead of storing a bogus path — and leaves the previous clip selected if
+    /// the user cancels out of it.
+    private var videoSelection: Binding<String> {
+        Binding(
+            get: { lockVideoPath },
+            set: { newValue in
+                guard newValue == LockVideo.chooseSentinel else {
+                    lockVideoPath = newValue
+                    videoImportError = nil
+                    return
+                }
+                chooseLockVideo()
+            }
+        )
+    }
+
+    private var videoRowSubtitle: String {
+        if let videoImportError { return videoImportError }
+        if LockVideo.isMissing(lockVideoPath) {
+            return "That file is gone — the built-in clip is playing instead."
+        }
+        return "Loops with its own sound the moment someone touches the machine."
+    }
+
+    /// Copies the pick into the app's own folder rather than referencing it where
+    /// it sits — see the note on `LockVideo`.
+    private func chooseLockVideo() {
+        guard let source = LockVideo.runOpenPanel() else { return }
+        do {
+            lockVideoPath = try LockVideo.importVideo(from: source)
+            videoImportError = nil
+        } catch {
+            videoImportError = "Couldn't import that video: \(error.localizedDescription)"
         }
     }
 
@@ -331,18 +413,33 @@ struct SettingsView: View {
                 endRadius: 170
             )
 
-            VStack(spacing: 8) {
-                Text(EmojiMascot.resolved(from: mascotEmoji))
-                    .font(.system(size: 42))
+            if lockVisual == .video {
+                // Held on frame one, not looping: the card is there to confirm
+                // which clip is selected, and a video playing on repeat in the
+                // corner of Settings pulls the eye off every control below it.
+                // Muted for the same reason — Settings is not where the scare
+                // should go off.
+                if let url = LockVideo.resolvedURL(from: lockVideoPath) {
+                    LockVideoView(url: url, playing: false, muted: true, gravity: .resizeAspect)
+                } else {
+                    Text("No video available")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                VStack(spacing: 8) {
+                    Text(EmojiMascot.resolved(from: mascotEmoji))
+                        .font(.system(size: 42))
 
-                if showMessage {
-                    Text(message)
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(.white)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.6)
-                        .padding(.horizontal, 18)
+                    if showMessage {
+                        Text(message)
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.6)
+                            .padding(.horizontal, 18)
+                    }
                 }
             }
         }
@@ -679,39 +776,6 @@ struct SettingsView: View {
 
             SettingsDivider()
 
-            // Optional, unlike Accessibility: only the Frozen backdrop captures
-            // anything. This row reports the system grant and nothing else — it
-            // deliberately does NOT react to the backdrop setting, so the state
-            // shown here always matches System Settings.
-            SettingsRow(
-                "Screen Recording",
-                // No "Optional —" prefix: the chip on the right already says it.
-                subtitle: "Only for the Frozen backdrop."
-            ) {
-                HStack(spacing: 10) {
-                    Label(
-                        screenRecordingGranted ? "Granted" : "Optional",
-                        systemImage: screenRecordingGranted ? "checkmark.circle.fill" : "photo"
-                    )
-                    .foregroundStyle(screenRecordingGranted ? settingsAccentColor : .secondary)
-
-                    if !screenRecordingGranted {
-                        Button {
-                            // Ask first — the system prompt only appears while the
-                            // grant is still undecided; once denied, only Settings works.
-                            ScreenRecordingChecker.requestAccess()
-                            ScreenRecordingChecker.openSystemSettings()
-                        } label: {
-                            Text("Grant Access")
-                                .padding(.horizontal, 8)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-            }
-
-            SettingsDivider()
-
             // Optional: without it, a failed unlock attempt just skips the
             // camera snapshot — everything else about the lock screen still works.
             SettingsRow(
@@ -825,7 +889,6 @@ struct SettingsView: View {
 
     private func refreshAccessibilityStatus() {
         accessibilityGranted = AccessibilityChecker.isEnabled
-        screenRecordingGranted = ScreenRecordingChecker.isEnabled
         cameraGranted = CameraChecker.isEnabled
     }
 

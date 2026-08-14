@@ -7,7 +7,6 @@ struct OnboardingView: View {
     @State private var isRecording = false
     @State private var recordedKeyDisplay = HotkeyConfig.display
     @State private var accessibilityGranted = AccessibilityChecker.isEnabled
-    @State private var screenRecordingGranted = ScreenRecordingChecker.isEnabled
     @State private var cameraGranted = CameraChecker.isEnabled
     @State private var accessibilityTimer: Timer?
     @State private var hotkeyConflict: String?
@@ -106,7 +105,6 @@ struct OnboardingView: View {
         .frame(width: 420, height: 500)
         .onAppear {
             accessibilityGranted = AccessibilityChecker.isEnabled
-            screenRecordingGranted = ScreenRecordingChecker.isEnabled
             cameraGranted = CameraChecker.isEnabled
             if step == 2 && !allRequiredGranted {
                 startPermissionPolling()
@@ -257,9 +255,7 @@ struct OnboardingView: View {
     // MARK: - Step 3: Permissions
 
     /// Only Accessibility is required to advance — it's the one grant a lock can't
-    /// work without. Screen Recording is optional because the default Live backdrop
-    /// shows the real desktop and captures nothing; it's only needed if you switch
-    /// to the frozen screenshot. Camera is optional too (snoop photo).
+    /// work without. Camera is optional (snoop photo).
     private var allRequiredGranted: Bool { accessibilityGranted }
 
     private var permissionsStep: some View {
@@ -292,19 +288,6 @@ struct OnboardingView: View {
                         AccessibilityChecker.promptIfNeeded()
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             AccessibilityChecker.openSystemSettings()
-                        }
-                    }
-                )
-
-                permissionRow(
-                    title: "Screen Recording",
-                    detail: "Only for the Frozen backdrop.",
-                    granted: screenRecordingGranted,
-                    optional: true,
-                    onRequest: {
-                        ScreenRecordingChecker.requestAccess()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            ScreenRecordingChecker.openSystemSettings()
                         }
                     }
                 )
@@ -525,20 +508,18 @@ struct OnboardingView: View {
 
     // MARK: - Accessibility Polling
 
-    /// Polls all three permissions while the user is on the permissions step.
-    /// Screen Recording and Camera grants are visible to a running process as
-    /// soon as they're toggled; Accessibility's `AXIsProcessTrusted()` can lag
-    /// or get stuck after a grant, but the poll alone still catches it once
-    /// macOS's cached answer catches up — there's no relaunch escape hatch here.
+    /// Polls the permissions while the user is on the permissions step.
+    /// A Camera grant is visible to a running process as soon as it's toggled;
+    /// Accessibility's `AXIsProcessTrusted()` can lag or get stuck after a grant,
+    /// but the poll alone still catches it once macOS's cached answer catches up —
+    /// there's no relaunch escape hatch here.
     private func startPermissionPolling() {
         accessibilityTimer?.invalidate()
         accessibilityGranted = AccessibilityChecker.isEnabled
-        screenRecordingGranted = ScreenRecordingChecker.isEnabled
 
         let timer = Timer(timeInterval: 0.5, repeats: true) { timer in
             DispatchQueue.main.async {
                 accessibilityGranted = AccessibilityChecker.isEnabled
-                screenRecordingGranted = ScreenRecordingChecker.isEnabled
                 if allRequiredGranted {
                     timer.invalidate()
                     accessibilityTimer = nil
