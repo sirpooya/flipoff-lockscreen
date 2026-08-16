@@ -267,6 +267,15 @@ so the gag can be sprung repeatedly on one lock.
     mints a new one and bumps `touchIDGeneration`, which the view uses as its
     `.id()` — `LAAuthenticationView` binds its context permanently at init, so a
     re-arm needs a whole new view.
+  - **The glyph exists at four sizes and nothing between them.**
+    `LAAuthenticationView` reports no intrinsic size and ignores its frame; the
+    control size is the only lever (`.mini` 16pt, `.small` 32pt, `.regular` 64pt,
+    `.large` 128pt). A `.scaleEffect` hides the view from AppKit's occlusion
+    detection, so the framework refuses to arm and draws nothing (log: "is not
+    visible to user because it is occluded", read ends -4). A frame/bounds
+    mismatch keeps arming alive but renders blank, because the layer-backed
+    `PKGlyphView` inside doesn't survive a bounds scale. Size the chrome around
+    the glyph, not the glyph.
   Password fallback still needs the ordinary modal path
   (`authenticateWithPassword()`), on an explicit user action only.
 - **App-wide notifications must be observed by `LockController`, never by a view.**

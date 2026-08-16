@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-08-16
+
+### Fixed
+
+- Touch ID unlocks again. The sensor was armed against a shield window that had
+  quietly lost key focus, which the framework silently ignores, so resting a
+  finger did nothing. The shield now claims focus every time it is raised or
+  rebuilt, takes it back if something steals it, and re-arms the sensor
+  afterwards.
+- The lock screen stops rebuilding its windows for display notifications that
+  change no geometry at all. Each needless rebuild tore down the Touch ID reader
+  mid-read.
+
+### Changed
+
+- The Touch ID glyph is bigger, solid white, and sits on a dark circle in the
+  bottom-right corner, so it stays legible on any wallpaper instead of vanishing
+  against a dark desktop.
+
 ## [1.4.0] - 2026-08-14
 
 ### Added

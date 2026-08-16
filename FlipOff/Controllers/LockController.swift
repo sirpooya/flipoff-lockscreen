@@ -59,6 +59,7 @@ class LockController: ObservableObject {
     private var inputBlockerFailedObserver: Any?
     private var inputAttemptObserver: Any?
     private var dismissRevealObserver: Any?
+    private var overlayKeyObserver: Any?
     private var accessibilityCheckTimer: Timer?
     private var errorClearTask: Task<Void, Never>?
     private var toggleObserver: Any?
@@ -138,6 +139,21 @@ class LockController: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 self?.dismissReveal()
+            }
+        }
+
+        // The shield taking key back is the moment touch-to-unlock can actually
+        // work: `LAAuthenticationView` ignores an arm issued while its window isn't
+        // key, and that ignored state is permanent for that view. Re-issuing the
+        // context rebuilds the view, and its `onAppear` arms the sensor again.
+        overlayKeyObserver = NotificationCenter.default.addObserver(
+            forName: .flipOffOverlayDidBecomeKey, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self,
+                      self.state == .locked,
+                      !self.authenticationInProgress else { return }
+                self.issueTouchIDContext()
             }
         }
 
@@ -231,6 +247,7 @@ class LockController: ObservableObject {
         if let obs = inputBlockerFailedObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = pingObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = inputAttemptObserver { NotificationCenter.default.removeObserver(obs) }
+        if let obs = overlayKeyObserver { NotificationCenter.default.removeObserver(obs) }
         if let obs = dismissRevealObserver { NotificationCenter.default.removeObserver(obs) }
         revealHideTask?.cancel()
     }
@@ -366,6 +383,7 @@ class LockController: ObservableObject {
                     continue
                 }
 
+                logger.info("Arming embedded Touch ID — generation \(self.touchIDGeneration, privacy: .public)")
                 let authenticated = await self.authenticator.armEmbeddedBiometrics(context)
 
                 guard self.state == .locked, !Task.isCancelled else { return }

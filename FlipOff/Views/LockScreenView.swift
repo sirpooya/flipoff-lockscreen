@@ -257,20 +257,35 @@ struct LockScreenView: View {
                 if let touchIDContext = controller.touchIDContext {
                     VStack {
                         Spacer()
-                        EmbeddedTouchIDView(context: touchIDContext)
-                            .frame(width: 26, height: 26)
-                            .id(controller.touchIDGeneration)
-                            .onAppear { controller.armEmbeddedTouchID() }
-                            // The system mark is a saturated red; drained to a
-                            // neutral grey so it reads as a quiet hint on the bare
-                            // shield instead of an error badge. A filter only
-                            // changes how the layer is composited — the view is
-                            // still on screen and still receives the prompt.
-                            .grayscale(1)
-                            .opacity(controller.revealed ? 0.55 : 0.28)
-                            .animation(.easeOut(duration: 0.25), value: controller.revealed)
-                            .accessibilityLabel("Touch ID — rest your finger on the sensor to unlock")
-                            .padding(.bottom, compact ? 16 : 40)
+                        HStack {
+                            Spacer()
+                            // 32pt because that is a native control size. Sizes in
+                            // between don't render at all and can break arming
+                            // outright — see the size notes in EmbeddedTouchIDView
+                            // before reaching for a scale here.
+                            EmbeddedTouchIDView(context: touchIDContext, controlSize: .small)
+                                .frame(width: 32, height: 32)
+                                .id(controller.touchIDGeneration)
+                                .onAppear { controller.armEmbeddedTouchID() }
+                                // The system mark is a saturated red; drained to a
+                                // neutral grey so it reads as a quiet hint on the bare
+                                // shield instead of an error badge, then pushed to
+                                // near-white. A filter only changes how the layer is
+                                // composited — the view is still on screen and still
+                                // receives the prompt.
+                                .grayscale(1)
+                                .brightness(0.75)
+                                // The shield is transparent, so this sits on the live
+                                // desktop — any colour at all. The disc is what makes
+                                // the mark legible: a fixed dark ground under it, so
+                                // contrast doesn't depend on the wallpaper.
+                                // 2pt all round, so a 32pt mark sits in a 36pt disc.
+                                .padding(2)
+                                .background(Circle().fill(.black.opacity(0.5)))
+                                .accessibilityLabel("Touch ID — rest your finger on the sensor to unlock")
+                        }
+                        .padding(.trailing, compact ? 16 : 32)
+                        .padding(.bottom, compact ? 16 : 32)
                     }
                 }
             }

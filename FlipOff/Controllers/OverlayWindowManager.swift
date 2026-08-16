@@ -19,6 +19,19 @@ class OverlayWindowManager {
     private var screenChangeWork: DispatchWorkItem?
     private var mouseMoveMonitors: [Any] = []
     private var cursorRehideTimer: Timer?
+    private var keyObservers: [Any] = []
+    /// Whether the shield has lost key status since it was raised. Only a *regained*
+    /// key is worth telling `LockController` about — announcing the first one too
+    /// would re-issue the Touch ID context during lock setup, and that churn
+    /// cancelled the arming task before it ever reached `evaluatePolicy`, leaving an
+    /// empty glyph and a sensor that was never listening.
+    private var sawKeyLoss = false
+    /// Frames the current windows were built for. `didChangeScreenParameters` fires
+    /// for things that change no geometry at all (menu-bar autohide, a display
+    /// waking, colour-profile churn), and each needless rebuild deallocates the
+    /// embedded Touch ID view mid-read — the sensor comes back with -4 "View was
+    /// deallocated". Rebuild only when the layout actually moved.
+    private var builtForFrames: [CGRect] = []
 
     private let shieldLevel = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
 
@@ -35,6 +48,7 @@ class OverlayWindowManager {
         }
         startObservingScreenChanges()
         startObservingSessionChanges()
+        startObservingKeyChanges()
         startCursorConcealment()
         return true
     }
@@ -42,6 +56,7 @@ class OverlayWindowManager {
     func dismissOverlay(animated: Bool = false) {
         stopObservingScreenChanges()
         stopObservingSessionChanges()
+        stopObservingKeyChanges()
         stopCursorConcealment()
 
         if animated {
@@ -70,6 +85,8 @@ class OverlayWindowManager {
             }
             windows.removeAll()
         }
+        builtForFrames = []
+        sawKeyLoss = false
     }
 
     func allowSystemDialogs() {
@@ -133,6 +150,87 @@ class OverlayWindowManager {
 
             windows.append(window)
         }
+
+        builtForFrames = screens.map(\.frame)
+        // Every path that builds windows has to claim key afterwards, not just the
+        // initial `showOverlay` — a mid-lock rebuild produces a brand-new window
+        // that nothing else would ever focus, and touch-to-unlock silently dies
+        // with it.
+        focusPrimaryWindow()
+    }
+
+    // MARK: - Key focus
+    //
+    // Touch-to-unlock hangs off this. `LAAuthenticationView` refuses to arm the
+    // sensor unless its window is key — it logs "is not visible to user because …
+    // is not key" and then quietly ignores every finger — so the shield holding
+    // key status is a functional requirement, not a nicety.
+
+    /// Activates the app and makes the primary shield key. Runs twice on purpose:
+    /// `NSApp.activate` is asynchronous, and a `makeKey` issued in the same runloop
+    /// turn can land before the activation and be dropped.
+    private func focusPrimaryWindow() {
+        guard let primary = windows.first else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        primary.makeKeyAndOrderFront(nil)
+        DispatchQueue.main.async { [weak primary] in
+            guard let primary, primary.isVisible, !primary.isKeyWindow else { return }
+            NSApp.activate(ignoringOtherApps: true)
+            primary.makeKey()
+        }
+    }
+
+    private func startObservingKeyChanges() {
+        stopObservingKeyChanges()
+
+        // Focus stolen mid-lock (a background app raising a panel, a display wake)
+        // disarms the sensor until the shield is key again. Take it back.
+        let resign = NotificationCenter.default.addObserver(
+            forName: NSWindow.didResignKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let window = note.object as? NSWindow,
+                  window === self.windows.first,
+                  // Stand down while the shield has deliberately stepped aside for
+                  // a system dialog (the password fallback) — that modal needs key,
+                  // and `allowSystemDialogs()` is what drops the level.
+                  window.level == self.shieldLevel else { return }
+            self.sawKeyLoss = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+                guard let self,
+                      let primary = self.windows.first,
+                      primary.level == self.shieldLevel,
+                      !primary.isKeyWindow else { return }
+                logger.info("Shield lost key — reclaiming so Touch ID stays armed")
+                self.focusPrimaryWindow()
+            }
+        }
+        keyObservers.append(resign)
+
+        let become = NotificationCenter.default.addObserver(
+            forName: NSWindow.didBecomeKeyNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let window = note.object as? NSWindow,
+                  window === self.windows.first,
+                  self.sawKeyLoss else { return }
+            self.sawKeyLoss = false
+            // An arm that happened while the window wasn't key was ignored by the
+            // framework; the context has to be re-issued so a fresh paired view
+            // evaluates against a window that now qualifies.
+            logger.info("Shield regained key — re-arming Touch ID")
+            NotificationCenter.default.post(name: .flipOffOverlayDidBecomeKey, object: nil)
+        }
+        keyObservers.append(become)
+    }
+
+    private func stopObservingKeyChanges() {
+        for observer in keyObservers { NotificationCenter.default.removeObserver(observer) }
+        keyObservers.removeAll()
     }
 
     // MARK: - Cursor concealment
@@ -148,8 +246,7 @@ class OverlayWindowManager {
         // when locking via the global hotkey some other app is frontmost. Activate
         // and make the primary overlay key first, then hide on the next runloop turn
         // so the activation has landed.
-        NSApp.activate(ignoringOtherApps: true)
-        windows.first?.makeKey()
+        focusPrimaryWindow()
         NSCursor.setHiddenUntilMouseMoves(true)
         DispatchQueue.main.async {
             NSCursor.setHiddenUntilMouseMoves(true)
@@ -195,6 +292,10 @@ class OverlayWindowManager {
             self.screenChangeWork?.cancel()
             let work = DispatchWorkItem { [weak self] in
                 guard let self else { return }
+                guard NSScreen.screens.map(\.frame) != self.builtForFrames else {
+                    logger.info("Screen parameters changed but layout is identical — keeping windows")
+                    return
+                }
                 logger.info("Screen parameters changed — recreating overlay windows")
                 // Do NOT call window.close() — closing during a fade-in animation
                 // causes EXC_BAD_ACCESS in _NSWindowTransformAnimation dealloc.
@@ -243,6 +344,7 @@ class OverlayWindowManager {
     deinit {
         stopObservingScreenChanges()
         stopObservingSessionChanges()
+        stopObservingKeyChanges()
         stopCursorConcealment()
         for window in windows {
             window.orderOut(nil)
